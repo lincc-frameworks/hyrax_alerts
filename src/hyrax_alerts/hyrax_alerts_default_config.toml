@@ -1,0 +1,9 @@
+[hyrax_alerts]
+
+[writers]
+[to_disk]
+writer_class = "ToDiskWriter"
+location = "./results"
+post_process = "hyrax_alerts.example_functions.example_post_process"
+post_filter = "hyrax_alerts.example_functions.example_post_filter"
+
