@@ -1,4 +1,5 @@
 import argparse
+from contextlib import ExitStack
 
 from hyrax import Hyrax
 
@@ -10,20 +11,24 @@ def process_alerts(config_filepath=None):
     h = Hyrax(config_file=config_filepath)
     writers = get_writers(h.config)
 
-    with h.infer_stream() as session:
-        print("Streaming inference session started, waiting for alerts")
-        for batch in session.data_loader:
-            # TODO: Can we parallelize?
-            batch = session.data_loader.pre_filter(batch)
-            batch = session.data_loader.pre_process(batch)
-            if batch:
+    with ExitStack() as stack:
+        writers = [stack.enter_context(writer) for writer in writers]
+
+        with h.infer_stream() as session:
+            print("Streaming inference session started, waiting for alerts")
+            for batch in session.data_loader:
+                batch = session.data_loader.pre_filter(batch)
+                batch = session.data_loader.pre_process(batch)
+                if not batch:
+                    continue
+
                 results = session.process(batch)
 
-            for writer in writers:
-                # TODO: Can we parallelize?
-                post_processed_results = writer.post_process(results)
-                filtered_results = writer.post_filter(post_processed_results)
-                writer.write(filtered_results)
+                # TODO: Parallelize writers
+                for writer in writers:
+                    processed_results = writer.post_process(results)
+                    filtered_batch, filtered_results = writer._post_filter_batches(batch, processed_results)
+                    writer.write(filtered_batch, filtered_results)
 
 
 if __name__ == "__main__":
