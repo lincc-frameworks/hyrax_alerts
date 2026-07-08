@@ -9,3 +9,16 @@ writer_class = "HyraxAlertsDiskWriter"
 location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
+
+[data_request.infer_stream.data]
+dataset_class = "hyrax_alerts.consumers.base_consumer.BaseConsumer"
+data_location = "kafka://localhost:9092/my-topic"
+primary_id_field = "id"
+fields = ["image", "label"]
+
+[model]
+name = "HyraxLoopback"
+
+[infer_stream]
+model_weights_file = "/home/drew/code/hyrax_alerts/foo.bar"
+save_model_output = true

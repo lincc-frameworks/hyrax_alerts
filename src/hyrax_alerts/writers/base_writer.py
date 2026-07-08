@@ -23,6 +23,7 @@ def get_writers(config):
         writer_class = WRITER_REGISTRY.get(writer_config["writer_class"])
         if writer_class:
             writers.append(writer_class(writer_config))
+    # TODO: Log the writers that were instantiated for debugging purposes
     return writers
 
 

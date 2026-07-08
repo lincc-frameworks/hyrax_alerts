@@ -16,9 +16,11 @@ def process_alerts(config_filepath=None):
 
         with h.infer_stream() as session:
             print("Streaming inference session started, waiting for alerts")
-            for batch in session.data_loader:
-                batch = session.data_loader.pre_filter(batch)
-                batch = session.data_loader.pre_process(batch)
+            consumer = session.data_loader.dataset._stream
+            for i, batch in enumerate(session.data_loader):
+                # TODO: Log "Processing batch {i + 1} with size {len(batch['object_id'])}")
+                batch = consumer.pre_filter(batch)
+                batch = consumer.pre_process(batch)
                 if not batch:
                     continue
 
