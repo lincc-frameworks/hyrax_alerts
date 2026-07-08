@@ -1,7 +1,9 @@
 from hyrax.datasets.kafka_stream_dataset import KafkaStreamDataset
 
+
 class BaseConsumer(KafkaStreamDataset):
     """Base consumer class for consuming messages from a Kafka topic."""
+
     def __init__(self, config, data_location):
         super().__init__(config, data_location)
 
