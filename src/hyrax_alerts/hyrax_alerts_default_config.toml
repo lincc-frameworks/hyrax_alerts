@@ -11,14 +11,18 @@ post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
 [data_request.infer_stream.data]
-dataset_class = "hyrax_alerts.consumers.base_consumer.BaseConsumer"
+dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
 data_location = "kafka://localhost:9092/my-topic"
 primary_id_field = "id"
 fields = ["image", "label"]
+
+[hyrax_alerts.consumer]
+pre_process = "hyrax_alerts.example_functions.example_pre_process"
+pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
 
 [model]
 name = "HyraxLoopback"
 
 [infer_stream]
-model_weights_file = "/home/drew/code/hyrax_alerts/foo.bar"
+model_weights_file = "/Users/maxwest/kafka_testbed/foo.bar"
 save_model_output = true

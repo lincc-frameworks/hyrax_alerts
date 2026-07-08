@@ -15,9 +15,8 @@ def process_alerts(config_filepath=None):
         writers = [stack.enter_context(writer) for writer in writers]
 
         with h.infer_stream() as session:
-            print("Streaming inference session started, waiting for alerts")
             consumer = session.data_loader.dataset._stream
-            for i, batch in enumerate(session.data_loader):
+            for _, batch in enumerate(session.data_loader):
                 # TODO: Log "Processing batch {i + 1} with size {len(batch['object_id'])}")
                 batch = consumer.pre_filter(batch)
                 batch = consumer.pre_process(batch)
