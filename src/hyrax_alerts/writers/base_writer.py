@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from types import MethodType
 
 from hyrax.plugin_utils import update_registry
@@ -19,6 +20,7 @@ def get_writers(config):
     list
         A list of instantiated writer objects.
     """
+
     writers = []
     for _, writer_config in config["hyrax_alerts"]["writers"].items():
         writer_class = WRITER_REGISTRY.get(writer_config["writer_class"])
@@ -59,14 +61,14 @@ class HyraxAlertsBaseWriter:
         """Automatically register subclasses in the WRITER_REGISTRY."""
         update_registry(WRITER_REGISTRY, cls.__name__, cls)
 
-    def _register_post_process(self, function: str):
+    def _register_post_process(self, function: str | Callable):
         """Used to register a post-processing function that will be applied to
         results output from a model"""
         if isinstance(function, str):
             function = load_callable(function)
         self.post_process = MethodType(function, self)
 
-    def _register_post_filter(self, function: str):
+    def _register_post_filter(self, function: str | Callable):
         """Used to register a post-filtering function that will be applied to
         results output from a model, after post-processing."""
         if isinstance(function, str):
@@ -81,7 +83,7 @@ class HyraxAlertsBaseWriter:
         For example:
         .. code-block:: toml
 
-            [writers.to_disk]
+            [hyrax_alerts.writers.to_disk]
             writer_class = "HyraxAlertsDiskWriter"
             location = "./results"
             post_process = "hyrax_alerts.example_functions.example_post_process"
@@ -98,7 +100,7 @@ class HyraxAlertsBaseWriter:
         """
         return result_batch
 
-    def post_filter(self, result_batch: list) -> list | None:
+    def post_filter(self, result_batch: list) -> list[bool]:
         """Return a boolean selector aligned to ``result_batch``. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
@@ -106,7 +108,7 @@ class HyraxAlertsBaseWriter:
         For example:
         .. code-block:: toml
 
-            [writers.to_disk]
+            [hyrax_alerts.writers.to_disk]
             writer_class = "HyraxAlertsDiskWriter"
             location = "./results"
             post_filter = "hyrax_alerts.example_functions.example_post_filter"
@@ -130,17 +132,15 @@ class HyraxAlertsBaseWriter:
 
         selection = self.post_filter(result_batch)
 
-        # TODO: Reconsider whether returning None is the right approach here.
-        if selection is None:
-            return data_batch, result_batch
-
         if len(selection) != len(result_batch):
             raise ValueError("post_filter must return a boolean selector with one entry per result")
 
         if not all(isinstance(keep_result, bool) for keep_result in selection):
             raise TypeError("post_filter must return booleans so results stay aligned with input data")
 
-        filtered_data_batch = [data for data, keep_result in zip(data_batch, selection, strict=True) if keep_result]
+        filtered_data_batch = [
+            data for data, keep_result in zip(data_batch, selection, strict=True) if keep_result
+        ]
         filtered_result_batch = [
             result for result, keep_result in zip(result_batch, selection, strict=True) if keep_result
         ]

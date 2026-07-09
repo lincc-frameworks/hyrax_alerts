@@ -3,6 +3,7 @@ from importlib import import_module
 
 
 def load_callable(dotted_path: str) -> Callable:
+    """Load a callable from a dotted path like package.module.function.
 
     Parameters
     ----------
@@ -11,7 +12,7 @@ def load_callable(dotted_path: str) -> Callable:
 
     Returns
     -------
-    callable
+    Callable
         The loaded callable.
 
     Raises

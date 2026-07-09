@@ -10,11 +10,18 @@ class HyraxAlertsDiskWriter(HyraxAlertsBaseWriter):
 
     def __init__(self, config):
         super().__init__(config)
+        self.output_location = config.get("output_location", None)
+        if self.output_location is None:
+            raise ValueError("HyraxAlertsDiskWriter requires an 'output_location' path.")
 
-        # TODO: Think about result_location instead of data_location.
-        self.data_location = config.get("data_location", None)
-        if self.data_location:
-            self.directory = self.data_location
+        # create self.output_location directory if it doesn't exist, log a warning
+        # if we create one for the user
+        import os
+
+        if not os.path.exists(self.output_location):
+            os.makedirs(self.output_location, exist_ok=True)
+            print(f"Warning: Created directory '{self.output_location}' for output.")
+
         # TODO: We should just instantiate a ResultDataset here
 
     def write(self, data_batch: list, result_batch: list):
