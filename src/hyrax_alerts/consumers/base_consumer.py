@@ -64,7 +64,7 @@ class HyraxAlertsBaseConsumer:
         """
         return input_batch
 
-    def pre_filter(self, input_batch: list) -> list[bool] | None:
+    def pre_filter(self, input_batch: list) -> list[bool]:
         """Return a boolean selector aligned to ``input_batch``. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
@@ -77,6 +77,6 @@ class HyraxAlertsBaseConsumer:
         Returns
         -------
         list
-            A list of the remaining items in the batch after filtering. If None, no filtering is applied.
+            A list of boolean values indicating which items in the batch should be kept.
         """
-        return input_batch
+        return [True] * len(input_batch)
