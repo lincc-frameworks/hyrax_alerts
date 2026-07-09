@@ -125,6 +125,9 @@ class HyraxAlertsBaseWriter:
 
     def _post_filter_batches(self, data_batch: list, result_batch: list) -> tuple[list, list]:
         """Filter result and data batches while preserving their alignment."""
+        if len(data_batch) != len(result_batch):
+            raise ValueError("data_batch and result_batch must be the same length to preserve alignment")
+
         selection = self.post_filter(result_batch)
 
         # TODO: Reconsider whether returning None is the right approach here.
@@ -137,11 +140,9 @@ class HyraxAlertsBaseWriter:
         if not all(isinstance(keep_result, bool) for keep_result in selection):
             raise TypeError("post_filter must return booleans so results stay aligned with input data")
 
-        filtered_data_batch = [
-            data for data, keep_result in zip(data_batch, selection, strict=False) if keep_result
-        ]
+        filtered_data_batch = [data for data, keep_result in zip(data_batch, selection, strict=True) if keep_result]
         filtered_result_batch = [
-            result for result, keep_result in zip(result_batch, selection, strict=False) if keep_result
+            result for result, keep_result in zip(result_batch, selection, strict=True) if keep_result
         ]
         return filtered_data_batch, filtered_result_batch
 

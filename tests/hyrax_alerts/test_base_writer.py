@@ -35,9 +35,7 @@ def test_filter_batches_uses_boolean_selector_to_keep_alignment():
     assert filtered_results == [1, 3]
 
 
-def test_filter_batches_rejects_non_boolean_selectors():
-    """Test that a post_filter function returning the wrong number of entries
-    raises a ValueError."""
+def test_filter_batches_rejects_selector_length_mismatch():
 
     def invalid_selector(self, result_batch):
         return result_batch[:1]

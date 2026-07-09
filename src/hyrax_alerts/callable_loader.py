@@ -1,8 +1,8 @@
+from collections.abc import Callable
 from importlib import import_module
 
 
-def load_callable(dotted_path: str) -> callable:
-    """Load a callable from a dotted path like package.module.function.
+def load_callable(dotted_path: str) -> Callable:
 
     Parameters
     ----------
