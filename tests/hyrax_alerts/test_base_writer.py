@@ -36,6 +36,8 @@ def test_filter_batches_uses_boolean_selector_to_keep_alignment():
 
 
 def test_filter_batches_rejects_selector_length_mismatch():
+    """Test that a post_filter function returning a selector of the wrong length
+    raises a ValueError."""
 
     def invalid_selector(self, result_batch):
         return result_batch[:1]
