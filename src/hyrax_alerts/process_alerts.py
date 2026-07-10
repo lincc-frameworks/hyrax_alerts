@@ -32,10 +32,14 @@ def process_alerts(config_filepath=None):
                     writer.write(filtered_batch, filtered_results)
 
 
-if __name__ == "__main__":
-    # Add CLI handling so that we can pass a config file path to the process_alerts function
+def main():
+    """Main function to process alerts."""
     parser = argparse.ArgumentParser(description="Process alerts with Hyrax.")
     parser.add_argument("--config", type=str, help="Path to the configuration file", default=None)
     args = parser.parse_args()
 
     process_alerts(config_filepath=args.config)
+
+
+if __name__ == "__main__":
+    main()
