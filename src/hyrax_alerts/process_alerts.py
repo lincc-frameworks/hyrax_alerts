@@ -1,13 +1,45 @@
-# TODO: Consider if this becomes an externally defined Hyrax verb
-# It would inherit from the base Hyrax verb and be registered with the framework,
-# allowing users to run it with a simple command like `hyrax_alerts process`
+import argparse
+from contextlib import ExitStack
+
+from hyrax import Hyrax
+
+from hyrax_alerts.writers.base_writer import get_writers
 
 
-def process_alerts():
+def process_alerts(config_filepath=None):
     """Main function to process alerts."""
-    # Placeholder for the actual alert processing logic
-    print("Processing alerts...")
+    h = Hyrax(config_file=config_filepath)
+    writers = get_writers(h.config)
+
+    with ExitStack() as stack:
+        writers = [stack.enter_context(writer) for writer in writers]
+
+        with h.infer_stream() as session:
+            consumer = session.data_loader.dataset._stream
+            for _, batch in enumerate(session.data_loader):
+                # TODO: Log "Processing batch {i + 1} with size {len(batch['object_id'])}")
+                batch = consumer.pre_filter(batch)
+                batch = consumer.pre_process(batch)
+                if not batch:
+                    continue
+
+                results = session.process(batch)
+
+                # TODO: Parallelize writers
+                for writer in writers:
+                    processed_results = writer.post_process(results)
+                    filtered_batch, filtered_results = writer._post_filter_batches(batch, processed_results)
+                    writer.write(filtered_batch, filtered_results)
+
+
+def main():
+    """Main function to process alerts."""
+    parser = argparse.ArgumentParser(description="Process alerts with Hyrax.")
+    parser.add_argument("--config", type=str, help="Path to the configuration file", default=None)
+    args = parser.parse_args()
+
+    process_alerts(config_filepath=args.config)
 
 
 if __name__ == "__main__":
-    process_alerts()
+    main()

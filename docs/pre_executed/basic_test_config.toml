@@ -19,3 +19,10 @@ fields = ["image", "label"]
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+
+[model]
+name = "HyraxLoopback"
+
+[infer_stream]
+model_weights_file = "./foo.bar"
+save_model_output = true

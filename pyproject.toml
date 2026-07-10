@@ -24,8 +24,8 @@ dependencies = [
 "Source Code" = "https://github.com/lincc-frameworks/hyrax_alerts"
 
 [project.scripts]
-hyrax_alerts = "hyrax_alerts.process_alerts:process_alerts"
-process_alerts = "hyrax_alerts.process_alerts:process_alerts"
+hyrax_alerts = "hyrax_alerts.process_alerts:main"
+process_alerts = "hyrax_alerts.process_alerts:main"
 
 # On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
 [project.optional-dependencies]
