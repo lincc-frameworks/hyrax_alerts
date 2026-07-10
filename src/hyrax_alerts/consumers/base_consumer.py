@@ -1,6 +1,7 @@
 from types import MethodType
 
 from hyrax.plugin_utils import update_registry
+
 from hyrax_alerts.callable_loader import load_callable
 
 CONSUMER_REGISTRY = {}
