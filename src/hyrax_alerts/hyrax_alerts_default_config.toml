@@ -1,12 +1,12 @@
 [hyrax_alerts.writers.to_disk_0]
 writer_class = "HyraxAlertsDiskWriter"
-location = "./results"
+output_location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
 [hyrax_alerts.writers.to_disk_1]
 writer_class = "HyraxAlertsDiskWriter"
-location = "./results"
+output_location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 

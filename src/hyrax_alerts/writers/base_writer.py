@@ -85,7 +85,7 @@ class HyraxAlertsBaseWriter:
 
             [hyrax_alerts.writers.to_disk]
             writer_class = "HyraxAlertsDiskWriter"
-            location = "./results"
+            output_location = "./results"
             post_process = "hyrax_alerts.example_functions.example_post_process"
 
         Parameters
@@ -110,7 +110,7 @@ class HyraxAlertsBaseWriter:
 
             [hyrax_alerts.writers.to_disk]
             writer_class = "HyraxAlertsDiskWriter"
-            location = "./results"
+            output_location = "./results"
             post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
         Parameters
