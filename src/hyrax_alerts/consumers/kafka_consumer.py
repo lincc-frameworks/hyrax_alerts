@@ -10,7 +10,7 @@ class HyraxKafkaConsumer(HyraxAlertsBaseConsumer, KafkaStreamDataset):
     simply provide the necessary configuration parameters in the config file.
 
     The required config fields in the data_request of the hyrax config are:
-    - "dataset_class": "hyrax_alerts.HyraxKafkaConsumer"
+    - "dataset_class": "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
     - "data_location": "kafka://{your kafka server}/{your kafka topic}"
     + any other hyrax data_request fields.
     """
