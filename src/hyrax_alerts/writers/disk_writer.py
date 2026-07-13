@@ -43,7 +43,7 @@ class HyraxAlertsDiskWriter(HyraxAlertsBaseWriter):
         else:
             result_batch = {"_object_id": data_batch["object_id"], "result": result_batch}
 
-        np.save(f"{self.output_location}/batch_{self.file_counter:08d}.npy", result_batch)
+        np.save(os.path.join(self.output_location, f"batch_{self.file_counter:08d}.npy"), payload)
         self.file_counter += 1
 
     def __enter__(self):
