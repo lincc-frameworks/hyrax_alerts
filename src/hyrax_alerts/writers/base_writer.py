@@ -155,7 +155,7 @@ class HyraxAlertsBaseWriter:
         """
         return result_batch
 
-    def post_filter(self, result_batch: list) -> list[bool]:
+    def post_filter(self, result_batch: list | dict[str, list]) -> list[bool]:
         """Return a boolean selector aligned to ``result_batch``. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
@@ -170,7 +170,7 @@ class HyraxAlertsBaseWriter:
 
         Parameters
         ----------
-        result_batch : list
+        result_batch : list | dict[str, list]
             A batch of results to be filtered.
 
         Returns
@@ -178,9 +178,11 @@ class HyraxAlertsBaseWriter:
         list[bool]
             A list of booleans indicating which results to keep.
         """
-        return [True] * len(result_batch)
+        return [True] * _aligned_batch_length(result_batch)
 
-    def _post_filter_batches(self, data_batch: list, result_batch: list) -> tuple[list, list]:
+    def _post_filter_batches(
+        self, data_batch: dict, result_batch: list | dict[str, list]
+    ) -> tuple[dict, list | dict[str, list]]:
         """Filter result and data batches while preserving their alignment."""
         batch_length = len(data_batch["object_id"])
         result_batch_length = _aligned_batch_length(result_batch)
