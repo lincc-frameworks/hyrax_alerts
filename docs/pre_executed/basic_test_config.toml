@@ -4,11 +4,11 @@ output_location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
-[hyrax_alerts.writers.to_disk_1]
-writer_class = "HyraxAlertsDiskWriter"
-output_location = "./results"
-post_process = "hyrax_alerts.example_functions.example_post_process"
-post_filter = "hyrax_alerts.example_functions.example_post_filter"
+[hyrax_alerts.writers.to_slack_0]
+writer_class = "HyraxAlertsSlackWriter"
+slack_token = false. # replace with slack bot token
+channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
+max_object_ids = 10
 
 [data_request.infer_stream.data]
 dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
