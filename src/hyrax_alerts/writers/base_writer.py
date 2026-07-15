@@ -146,15 +146,15 @@ class HyraxAlertsBaseWriter:
         ]
         return filtered_data_batch, filtered_result_batch
 
-    def write(self, data_batch: list, result_batch: list):
+    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
         """Abstract method to write a batch of results. Subclasses must implement
         this method.
 
         Parameters
         ----------
-        data_batch : list
+        data_batch : dict
             A batch of input data corresponding to the results.
-        result_batch : list
+        result_batch : list | dict[str, list]
             A batch of model results that have been post-processed and filtered.
 
         Returns
