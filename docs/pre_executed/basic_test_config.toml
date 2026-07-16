@@ -1,3 +1,10 @@
+#############################
+# Hyrax-alerts configurations
+#############################
+[hyrax_alerts.consumer]
+pre_process = "hyrax_alerts.example_functions.example_pre_process"
+pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+
 [hyrax_alerts.writers.to_disk_0]
 writer_class = "HyraxAlertsDiskWriter"
 output_location = "./results"
@@ -10,15 +17,15 @@ slack_token = false # replace with slack bot token
 channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
 max_object_ids = 10
 
+
+############################################
+# Alerts specific to the Hyrax configuration
+############################################
 [data_request.infer_stream.data]
 dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
 data_location = "kafka://localhost:9092/my-topic"
 primary_id_field = "id"
 fields = ["image", "label"]
-
-[hyrax_alerts.consumer]
-pre_process = "hyrax_alerts.example_functions.example_pre_process"
-pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
 
 [model]
 name = "HyraxLoopback"

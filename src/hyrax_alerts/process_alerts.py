@@ -1,9 +1,12 @@
 import argparse
+import logging
 from contextlib import ExitStack
 
 from hyrax import Hyrax
 
 from hyrax_alerts.writers.base_writer import get_writers
+
+logger = logging.getLogger(__name__)
 
 
 def process_alerts(config_filepath=None):
@@ -16,8 +19,8 @@ def process_alerts(config_filepath=None):
 
         with h.infer_stream() as session:
             consumer = session.data_loader.dataset._stream
-            for _, batch in enumerate(session.data_loader):
-                # TODO: Log "Processing batch {i + 1} with size {len(batch['object_id'])}")
+            for batch_num, batch in enumerate(session.data_loader, start=1):
+                logger.info(f"Processing batch {batch_num} with size {len(batch['object_id'])}")
                 batch = consumer.pre_filter(batch)
                 batch = consumer.pre_process(batch)
                 if not batch:
