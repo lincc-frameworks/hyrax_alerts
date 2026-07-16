@@ -25,8 +25,7 @@ def _format_batch_summary(
         A batch of input data. Expected to contain an ``object_id`` entry, as
         produced by the Hyrax alerts consumers.
     result_batch : list | dict[str, list]
-        The post-processed, post-filtered model results for this batch. Only its
-        length is used for the summary.
+        The post-processed, post-filtered model results for this batch.
     max_object_ids : int, optional
         Maximum number of object ids to list explicitly before truncating,
         by default ``DEFAULT_MAX_OBJECT_IDS``.
