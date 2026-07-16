@@ -1,11 +1,66 @@
 from collections.abc import Callable
 from types import MethodType
 
+import numpy as np
 from hyrax.plugin_utils import update_registry
 
 from hyrax_alerts.callable_loader import load_callable
 
 WRITER_REGISTRY = {}
+
+
+def _aligned_batch_length(values):
+    """Return aligned batch length for list/array or dict-of-aligned-fields. Initial
+    return values from Hyrax models were expected to be a single numpy object. However
+    in future releases we will support more complex batch structures that include
+    returning a dictionary of numpy values from the model for each batch element."""
+    if isinstance(values, dict):
+        if not values:
+            raise ValueError("result_batch dictionary must contain at least one aligned field")
+        # set comprehension to collect the lengths of all fields in the dictionary
+        lengths = {len(field_values) for field_values in values.values()}
+        if len(lengths) != 1:
+            raise ValueError("result_batch dictionary fields must share the same length")
+        return lengths.pop()
+    return len(values)
+
+
+def _filter_aligned_values(values, selection_mask):
+    """Filter an aligned collection while preserving array-backed types."""
+
+    # NOTE: if `values` is a dictionary, we recursively filter each field. An example
+    # is when `values` represents a nested data structure within the batch, as in
+    # the "label" portion of {"data": {"label": [4, 5, 6]}}.
+    if isinstance(values, dict):
+        return {
+            field: _filter_aligned_values(field_values, selection_mask)
+            for field, field_values in values.items()
+        }
+
+    # NOTE: We assume that it will always be the case that `values` is an np.ndarray
+    # but we include a list comprehension fallback just in case.
+    if isinstance(values, np.ndarray):
+        return values[selection_mask]
+    return [value for value, keep_result in zip(values, selection_mask, strict=True) if keep_result]
+
+
+def _filter_data_batch(data_batch, selection_mask):
+    """Filter a structured batch while preserving aligned top-level fields."""
+    # Filter the "object_id" key/value
+    filtered_data_batch = {"object_id": _filter_aligned_values(data_batch["object_id"], selection_mask)}
+
+    # Filter the remaining top-level friendly name datasets. We assume that only
+    # one top-level friendly name exists because we are operating on streaming data
+    # but this is built to handle multiple top-level friendly name datasets to handle
+    # any future scenarios where multiple top-level friendly name datasets might exist.
+    filtered_data_batch.update(
+        {
+            field: _filter_aligned_values(values, selection_mask)
+            for field, values in data_batch.items()
+            if field != "object_id"
+        }
+    )
+    return filtered_data_batch
 
 
 def get_writers(config):
@@ -100,7 +155,7 @@ class HyraxAlertsBaseWriter:
         """
         return result_batch
 
-    def post_filter(self, result_batch: list) -> list[bool]:
+    def post_filter(self, result_batch: list | dict[str, list]) -> list[bool]:
         """Return a boolean selector aligned to ``result_batch``. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
@@ -115,7 +170,7 @@ class HyraxAlertsBaseWriter:
 
         Parameters
         ----------
-        result_batch : list
+        result_batch : list | dict[str, list]
             A batch of results to be filtered.
 
         Returns
@@ -123,38 +178,41 @@ class HyraxAlertsBaseWriter:
         list[bool]
             A list of booleans indicating which results to keep.
         """
-        return [True] * len(result_batch)
+        return [True] * _aligned_batch_length(result_batch)
 
-    def _post_filter_batches(self, data_batch: list, result_batch: list) -> tuple[list, list]:
+    def _post_filter_batches(
+        self, data_batch: dict, result_batch: list | dict[str, list]
+    ) -> tuple[dict, list | dict[str, list]]:
         """Filter result and data batches while preserving their alignment."""
-        if len(data_batch) != len(result_batch):
+        batch_length = len(data_batch["object_id"])
+        result_batch_length = _aligned_batch_length(result_batch)
+
+        if batch_length != result_batch_length:
             raise ValueError("data_batch and result_batch must be the same length to preserve alignment")
 
         selection = self.post_filter(result_batch)
+        # convert the returned selection to a numpy bool array for faster filtering
+        selection_mask = np.asarray(selection, dtype=bool)
 
-        if len(selection) != len(result_batch):
+        if len(selection_mask) != result_batch_length:
             raise ValueError("post_filter must return a boolean selector with one entry per result")
 
-        if not all(isinstance(keep_result, bool) for keep_result in selection):
-            raise TypeError("post_filter must return booleans so results stay aligned with input data")
+        # filter the data batch using the selection mask
+        filtered_data_batch = _filter_data_batch(data_batch, selection_mask)
 
-        filtered_data_batch = [
-            data for data, keep_result in zip(data_batch, selection, strict=True) if keep_result
-        ]
-        filtered_result_batch = [
-            result for result, keep_result in zip(result_batch, selection, strict=True) if keep_result
-        ]
+        # filter the result batch using the same helper to preserve input types
+        filtered_result_batch = _filter_aligned_values(result_batch, selection_mask)
         return filtered_data_batch, filtered_result_batch
 
-    def write(self, data_batch: list, result_batch: list):
+    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
         """Abstract method to write a batch of results. Subclasses must implement
         this method.
 
         Parameters
         ----------
-        data_batch : list
+        data_batch : dict
             A batch of input data corresponding to the results.
-        result_batch : list
+        result_batch : list | dict[str, list]
             A batch of model results that have been post-processed and filtered.
 
         Returns
