@@ -6,7 +6,7 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
 [hyrax_alerts.writers.to_slack_0]
 writer_class = "HyraxAlertsSlackWriter"
-slack_token = false. # replace with slack bot token
+slack_token = false # replace with slack bot token
 channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
 max_object_ids = 10
 

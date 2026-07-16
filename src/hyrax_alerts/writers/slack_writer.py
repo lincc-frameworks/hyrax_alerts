@@ -79,13 +79,13 @@ class HyraxAlertsSlackWriter(HyraxAlertsBaseWriter):
     def __init__(self, config):
         super().__init__(config)
 
-        self.slack_token = config.get("slack_token", None)
-        if self.slack_token is None:
-            raise ValueError("HyraxAlertsSlackWriter requires a 'slack_token'.")
+        self.slack_token = config.get("slack_token")
+        if not isinstance(self.slack_token, str) or not self.slack_token.strip():
+            raise ValueError("HyraxAlertsSlackWriter requires a non-empty string 'slack_token'.")
 
-        self.channel = config.get("channel", None)
-        if self.channel is None:
-            raise ValueError("HyraxAlertsSlackWriter requires a 'channel'.")
+        self.channel = config.get("channel")
+        if not isinstance(self.channel, str) or not self.channel.strip():
+            raise ValueError("HyraxAlertsSlackWriter requires a non-empty string 'channel'.")
 
         self.max_object_ids = config.get("max_object_ids", DEFAULT_MAX_OBJECT_IDS)
 
