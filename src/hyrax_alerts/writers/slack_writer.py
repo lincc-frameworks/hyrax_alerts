@@ -15,7 +15,7 @@ DEFAULT_MAX_OBJECT_IDS = 10
 
 
 def _format_batch_summary(
-    data_batch: dict, result_batch, max_object_ids: int = DEFAULT_MAX_OBJECT_IDS
+    data_batch: dict, result_batch: list | dict[str, list], max_object_ids: int = DEFAULT_MAX_OBJECT_IDS
 ) -> str:
     """Build a short, human-readable summary of a batch for posting to Slack.
 
@@ -24,7 +24,7 @@ def _format_batch_summary(
     data_batch : dict
         A batch of input data. Expected to contain an ``object_id`` entry, as
         produced by the Hyrax alerts consumers.
-    result_batch : list | dict
+    result_batch : list | dict[str, list]
         The post-processed, post-filtered model results for this batch. Only its
         length is used for the summary.
     max_object_ids : int, optional
@@ -91,7 +91,7 @@ class HyraxAlertsSlackWriter(HyraxAlertsBaseWriter):
 
         self.client = WebClient(token=self.slack_token)
 
-    def write(self, data_batch: dict, result_batch: list | dict):
+    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
         """Post a summary of a batch of results to the configured Slack channel."""
         summary = _format_batch_summary(data_batch, result_batch, self.max_object_ids)
 
