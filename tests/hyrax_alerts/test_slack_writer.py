@@ -1,0 +1,89 @@
+from unittest.mock import MagicMock
+
+import pytest
+from hyrax_alerts.writers.slack_writer import HyraxAlertsSlackWriter, _format_batch_summary
+from slack_sdk.errors import SlackApiError
+
+
+def _valid_config(**overrides):
+    """Return a minimal valid Slack writer config, with optional overrides."""
+    config = {"slack_token": "xoxb-test-token", "channel": "#hyrax-alerts"}
+    config.update(overrides)
+    return config
+
+
+def test_init_requires_slack_token():
+    """The writer raises when no slack_token is provided."""
+    with pytest.raises(ValueError, match="slack_token"):
+        HyraxAlertsSlackWriter(config={"channel": "#hyrax-alerts"})
+
+
+def test_init_requires_channel():
+    """The writer raises when no channel is provided."""
+    with pytest.raises(ValueError, match="channel"):
+        HyraxAlertsSlackWriter(config={"slack_token": "xoxb-test-token"})
+
+
+def test_format_batch_summary_lists_object_ids():
+    """The summary reports the count and lists the object ids."""
+    data_batch = {"object_id": [101, 102, 103]}
+
+    summary = _format_batch_summary(data_batch, [1, 2, 3])
+
+    assert "3 alerts" in summary
+    assert "101, 102, 103" in summary
+
+
+def test_format_batch_summary_uses_singular_for_one_result():
+    """A single-object batch uses the singular 'alert'."""
+    summary = _format_batch_summary({"object_id": [101]}, [1])
+
+    assert "1 alert -" in summary
+    assert "1 alerts" not in summary
+
+
+def test_format_batch_summary_truncates_long_batches():
+    """Object ids beyond max_object_ids are truncated with a '+N more' suffix."""
+    data_batch = {"object_id": list(range(15))}
+
+    summary = _format_batch_summary(data_batch, list(range(15)), max_object_ids=10)
+
+    assert "15 alerts" in summary
+    assert "(+5 more)" in summary
+
+
+def test_format_batch_summary_handles_empty_batch():
+    """An empty batch produces a sensible message rather than failing."""
+    summary = _format_batch_summary({"object_id": []}, [])
+
+    assert "no objects" in summary
+
+
+def test_write_posts_message_to_configured_channel():
+    """write() posts the summary to the configured channel via the client."""
+    writer = HyraxAlertsSlackWriter(config=_valid_config())
+    writer.client = MagicMock()
+
+    writer.write({"object_id": [101, 102]}, [1, 2])
+
+    writer.client.chat_postMessage.assert_called_once()
+    _, kwargs = writer.client.chat_postMessage.call_args
+    assert kwargs["channel"] == "#hyrax-alerts"
+    assert "2 alerts" in kwargs["text"]
+
+
+def test_write_swallows_slack_api_error():
+    """A SlackApiError from the client does not propagate out of write()."""
+    writer = HyraxAlertsSlackWriter(config=_valid_config())
+    writer.client = MagicMock()
+    writer.client.chat_postMessage.side_effect = SlackApiError("boom", response={})
+
+    # Should not raise.
+    writer.write({"object_id": [101]}, [1])
+
+
+def test_writer_registered_in_registry():
+    """Defining the subclass registers it in the shared writer registry."""
+    from hyrax_alerts.writers.base_writer import WRITER_REGISTRY
+
+    assert WRITER_REGISTRY.get("HyraxAlertsSlackWriter") is HyraxAlertsSlackWriter

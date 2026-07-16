@@ -4,9 +4,10 @@ output_location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
-[hyrax_alerts.writers.to_disk_1]
-writer_class = "HyraxAlertsDiskWriter"
-output_location = "./results"
+[hyrax_alerts.writers.to_slack_0]
+writer_class = "HyraxAlertsSlackWriter"
+slack_token = "xoxb-your-token-here"
+channel = "#hyrax-alerts"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
