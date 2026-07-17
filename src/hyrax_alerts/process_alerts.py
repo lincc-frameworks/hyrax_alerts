@@ -26,6 +26,10 @@ def _max_writer_workers(writer_count):
     return min(writer_count, max(1, cpus * WRITER_THREAD_MULTIPLIER))
 
 
+def _noop_write_batch(batch, results):
+    """Do nothing when no writers are configured."""
+
+
 def _write_batch(executor, writers, batch, results):
     """Write one processed batch to all configured writers."""
     futures = [(executor.submit(_run_writer, writer, batch, results), writer) for writer in writers]
@@ -46,9 +50,7 @@ def process_alerts(config_filepath=None):
     writers = get_writers(h.config)
 
     with ExitStack() as stack:
-        def write_batch(batch, results):
-            pass
-
+        write_batch = _noop_write_batch
         if writers:
             writers = [stack.enter_context(writer) for writer in writers]
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
