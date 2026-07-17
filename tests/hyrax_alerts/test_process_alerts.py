@@ -149,5 +149,5 @@ def test_process_alerts_reports_which_writer_failed(monkeypatch):
     """Writer failures should include the writer class name for debugging."""
     _patch_process_alerts(monkeypatch, [_FailingWriter()])
 
-    with pytest.raises(RuntimeError, match="_FailingWriter failed while processing a batch"):
+    with pytest.raises(RuntimeError, match="_FailingWriter failed while processing a batch: ValueError"):
         process_alerts()

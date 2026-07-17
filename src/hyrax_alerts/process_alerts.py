@@ -47,12 +47,17 @@ def process_alerts(config_filepath=None):
 
                 results = session.process(batch)
 
-                futures = {executor.submit(_run_writer, writer, batch, results): writer for writer in writers}
-                for future, writer in futures.items():
+                futures = [
+                    (executor.submit(_run_writer, writer, batch, results), writer) for writer in writers
+                ]
+                for future, writer in futures:
                     try:
                         future.result()
                     except Exception as error:
-                        message = f"Writer {writer.__class__.__name__} failed while processing a batch"
+                        message = (
+                            f"Writer {writer.__class__.__name__} failed while processing a batch: "
+                            f"{type(error).__name__}"
+                        )
                         raise RuntimeError(message) from error
 
 
