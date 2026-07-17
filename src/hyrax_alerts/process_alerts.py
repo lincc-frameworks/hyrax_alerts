@@ -30,12 +30,12 @@ def process_alerts(config_filepath=None):
     """Main function to process alerts."""
     h = Hyrax(config_file=config_filepath)
     writers = get_writers(h.config)
-    if not writers:
-        return
 
     with ExitStack() as stack:
         writers = [stack.enter_context(writer) for writer in writers]
-        executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
+        executor = None
+        if writers:
+            executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
 
         with h.infer_stream() as session:
             consumer = session.data_loader.dataset._stream
@@ -47,6 +47,8 @@ def process_alerts(config_filepath=None):
                     continue
 
                 results = session.process(batch)
+                if executor is None:
+                    continue
 
                 futures = [
                     (executor.submit(_run_writer, writer, batch, results), writer) for writer in writers

@@ -30,6 +30,7 @@ class _FakeSession:
     def __init__(self, batches, results):
         self.data_loader = _FakeDataLoader(batches)
         self._results = results
+        self.process_calls = 0
 
     def __enter__(self):
         return self
@@ -38,6 +39,7 @@ class _FakeSession:
         return False
 
     def process(self, batch):
+        self.process_calls += 1
         return deepcopy(self._results)
 
 
@@ -46,17 +48,11 @@ class _FakeHyrax:
         self.config = config
         self._batches = batches
         self._results = results
+        self.last_session = None
 
     def infer_stream(self):
-        return _FakeSession(self._batches, self._results)
-
-
-class _NoStreamHyrax:
-    def __init__(self):
-        self.config = {}
-
-    def infer_stream(self):
-        raise AssertionError("infer_stream should not be called when no writers are configured")
+        self.last_session = _FakeSession(self._batches, self._results)
+        return self.last_session
 
 
 class _BarrierWriter(HyraxAlertsBaseWriter):
@@ -112,6 +108,7 @@ def _patch_process_alerts(monkeypatch, writers, results=None):
     fake_hyrax = _FakeHyrax(config={}, batches=batches, results=results or [1])
     monkeypatch.setattr("hyrax_alerts.process_alerts.Hyrax", lambda config_file=None: fake_hyrax)
     monkeypatch.setattr("hyrax_alerts.process_alerts.get_writers", lambda config: writers)
+    return fake_hyrax
 
 
 def test_process_alerts_runs_writers_in_parallel(monkeypatch):
@@ -137,12 +134,14 @@ def test_process_alerts_isolates_results_between_parallel_writers(monkeypatch):
     assert observing_writer.seen_score == 1
 
 
-def test_process_alerts_returns_early_when_no_writers(monkeypatch):
-    """No-writer runs should skip opening the inference stream entirely."""
-    monkeypatch.setattr("hyrax_alerts.process_alerts.Hyrax", lambda config_file=None: _NoStreamHyrax())
-    monkeypatch.setattr("hyrax_alerts.process_alerts.get_writers", lambda config: [])
+def test_process_alerts_runs_without_configured_writers(monkeypatch):
+    """No-writer runs should still process batches through Hyrax."""
+    fake_hyrax = _patch_process_alerts(monkeypatch, [])
 
     process_alerts()
+
+    assert fake_hyrax.last_session is not None
+    assert fake_hyrax.last_session.process_calls == 1
 
 
 def test_process_alerts_reports_which_writer_failed(monkeypatch):
