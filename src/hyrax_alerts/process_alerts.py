@@ -26,16 +26,35 @@ def _max_writer_workers(writer_count):
     return min(writer_count, max(1, cpus * WRITER_THREAD_MULTIPLIER))
 
 
+def _write_batch(executor, writers, batch, results):
+    """Write one processed batch to all configured writers."""
+    futures = [(executor.submit(_run_writer, writer, batch, results), writer) for writer in writers]
+    for future, writer in futures:
+        try:
+            future.result()
+        except Exception as error:
+            message = (
+                f"Writer {writer.__class__.__name__} failed while processing a batch: "
+                f"{type(error).__name__}"
+            )
+            raise RuntimeError(message) from error
+
+
 def process_alerts(config_filepath=None):
     """Main function to process alerts."""
     h = Hyrax(config_file=config_filepath)
     writers = get_writers(h.config)
 
     with ExitStack() as stack:
-        executor = None
+        def write_batch(batch, results):
+            return None
+
         if writers:
             writers = [stack.enter_context(writer) for writer in writers]
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
+
+            def write_batch(batch, results):
+                _write_batch(executor, writers, batch, results)
 
         with h.infer_stream() as session:
             consumer = session.data_loader.dataset._stream
@@ -47,21 +66,7 @@ def process_alerts(config_filepath=None):
                     continue
 
                 results = session.process(batch)
-                if not writers:
-                    continue
-
-                futures = [
-                    (executor.submit(_run_writer, writer, batch, results), writer) for writer in writers
-                ]
-                for future, writer in futures:
-                    try:
-                        future.result()
-                    except Exception as error:
-                        message = (
-                            f"Writer {writer.__class__.__name__} failed while processing a batch: "
-                            f"{type(error).__name__}"
-                        )
-                        raise RuntimeError(message) from error
+                write_batch(batch, results)
 
 
 def main():
