@@ -47,7 +47,7 @@ def process_alerts(config_filepath=None):
 
     with ExitStack() as stack:
         def write_batch(batch, results):
-            return None
+            pass
 
         if writers:
             writers = [stack.enter_context(writer) for writer in writers]

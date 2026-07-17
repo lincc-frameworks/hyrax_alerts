@@ -142,7 +142,7 @@ def test_process_alerts_isolates_results_between_parallel_writers(monkeypatch):
 
 
 def test_process_alerts_runs_without_configured_writers(monkeypatch):
-    """No-writer runs should still process batches through Hyrax."""
+    """Process all batches through Hyrax and the consumer pipeline without configured writers."""
     fake_hyrax = _patch_process_alerts(monkeypatch, [])
     assert len(fake_hyrax._batches) > 0
 
