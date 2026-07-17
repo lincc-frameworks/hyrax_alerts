@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from threading import Barrier, Event
 
@@ -144,7 +145,7 @@ def test_process_alerts_isolates_results_between_parallel_writers(monkeypatch):
 def test_process_alerts_warns_without_configured_writers(monkeypatch, caplog):
     """Warn and continue through Hyrax processing when no writers are configured."""
     fake_hyrax = _patch_process_alerts(monkeypatch, [])
-    caplog.set_level("WARNING")
+    caplog.set_level(logging.WARNING)
 
     process_alerts()
 
