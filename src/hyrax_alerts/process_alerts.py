@@ -26,8 +26,8 @@ def _max_writer_workers(writer_count):
     return min(writer_count, max(1, cpus * WRITER_THREAD_MULTIPLIER))
 
 
-def _noop_write_batch(batch, results):
-    """Do nothing when no writers are configured."""
+def _noop_write_batch(_batch, _results):
+    """Ignore processed batch data and results when no writers are configured."""
 
 
 def _write_batch(executor, writers, batch, results):
