@@ -1,9 +1,18 @@
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
+from copy import deepcopy
 
 from hyrax import Hyrax
 
 from hyrax_alerts.writers.base_writer import get_writers
+
+
+def _run_writer(writer, batch, results):
+    """Post-process, filter, and write one batch for one writer."""
+    processed_results = writer.post_process(deepcopy(results))
+    filtered_batch, filtered_results = writer._post_filter_batches(deepcopy(batch), processed_results)
+    writer.write(filtered_batch, filtered_results)
 
 
 def process_alerts(config_filepath=None):
@@ -13,6 +22,7 @@ def process_alerts(config_filepath=None):
 
     with ExitStack() as stack:
         writers = [stack.enter_context(writer) for writer in writers]
+        executor = stack.enter_context(ThreadPoolExecutor(max_workers=len(writers))) if writers else None
 
         with h.infer_stream() as session:
             consumer = session.data_loader.dataset._stream
@@ -25,11 +35,12 @@ def process_alerts(config_filepath=None):
 
                 results = session.process(batch)
 
-                # TODO: Parallelize writers
-                for writer in writers:
-                    processed_results = writer.post_process(results)
-                    filtered_batch, filtered_results = writer._post_filter_batches(batch, processed_results)
-                    writer.write(filtered_batch, filtered_results)
+                if executor is None:
+                    continue
+
+                futures = [executor.submit(_run_writer, writer, batch, results) for writer in writers]
+                for future in futures:
+                    future.result()
 
 
 def main():
