@@ -8,6 +8,8 @@ from hyrax import Hyrax
 
 from hyrax_alerts.writers.base_writer import get_writers
 
+# Writers are I/O-bound, so a small 2x oversubscription improves throughput
+# without creating an excessive number of threads.
 WRITER_THREAD_MULTIPLIER = 2
 
 
@@ -20,9 +22,8 @@ def _run_writer(writer, batch, results):
 
 def _max_writer_workers(writer_count):
     """Return a bounded worker count for parallel writer execution."""
-    # Writers are primarily I/O-bound, so allowing modest oversubscription helps
-    # keep slow outputs from serializing the whole batch.
-    return min(writer_count, max(1, (os.cpu_count() or 1) * WRITER_THREAD_MULTIPLIER))
+    cpus = os.cpu_count() or 1
+    return min(writer_count, max(1, cpus * WRITER_THREAD_MULTIPLIER))
 
 
 def process_alerts(config_filepath=None):
