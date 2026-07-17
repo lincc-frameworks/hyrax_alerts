@@ -1,6 +1,8 @@
 from copy import deepcopy
 from threading import Barrier, Event
 
+import pytest
+
 from hyrax_alerts.process_alerts import process_alerts
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
@@ -47,6 +49,14 @@ class _FakeHyrax:
         return _FakeSession(self._batches, self._results)
 
 
+class _NoStreamHyrax:
+    def __init__(self):
+        self.config = {}
+
+    def infer_stream(self):
+        raise AssertionError("infer_stream should not be called when no writers are configured")
+
+
 class _BarrierWriter(HyraxAlertsBaseWriter):
     def __init__(self, barrier):
         super().__init__({})
@@ -87,6 +97,14 @@ class _ObservingWriter(HyraxAlertsBaseWriter):
         pass
 
 
+class _FailingWriter(HyraxAlertsBaseWriter):
+    def __init__(self):
+        super().__init__({})
+
+    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+        raise ValueError("boom")
+
+
 def _patch_process_alerts(monkeypatch, writers, results=None):
     batches = [{"object_id": ["alert-1"], "data": {"flux": [1.0]}}]
     fake_hyrax = _FakeHyrax(config={}, batches=batches, results=results or [1])
@@ -115,3 +133,19 @@ def test_process_alerts_isolates_results_between_parallel_writers(monkeypatch):
     process_alerts()
 
     assert observing_writer.seen_score == 1
+
+
+def test_process_alerts_returns_early_when_no_writers(monkeypatch):
+    """No-writer runs should skip opening the inference stream entirely."""
+    monkeypatch.setattr("hyrax_alerts.process_alerts.Hyrax", lambda config_file=None: _NoStreamHyrax())
+    monkeypatch.setattr("hyrax_alerts.process_alerts.get_writers", lambda config: [])
+
+    process_alerts()
+
+
+def test_process_alerts_reports_which_writer_failed(monkeypatch):
+    """Writer failures should include the writer class name for debugging."""
+    _patch_process_alerts(monkeypatch, [_FailingWriter()])
+
+    with pytest.raises(RuntimeError, match="_FailingWriter failed while processing a batch"):
+        process_alerts()
