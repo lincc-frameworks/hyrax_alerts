@@ -10,17 +10,24 @@ MUTATED_SCORE = 99
 
 
 class _FakeConsumer:
+    def __init__(self):
+        self.pre_filter_calls = 0
+        self.pre_process_calls = 0
+
     def pre_filter(self, batch):
+        self.pre_filter_calls += 1
         return batch
 
     def pre_process(self, batch):
+        self.pre_process_calls += 1
         return batch
 
 
 class _FakeDataLoader:
     def __init__(self, batches):
         self._batches = batches
-        self.dataset = type("Dataset", (), {"_stream": _FakeConsumer()})()
+        self.consumer = _FakeConsumer()
+        self.dataset = type("Dataset", (), {"_stream": self.consumer})()
 
     def __iter__(self):
         return iter(self._batches)
@@ -142,6 +149,8 @@ def test_process_alerts_runs_without_configured_writers(monkeypatch):
 
     assert fake_hyrax.last_session is not None
     assert fake_hyrax.last_session.process_calls == len(fake_hyrax._batches)
+    assert fake_hyrax.last_session.data_loader.consumer.pre_filter_calls == len(fake_hyrax._batches)
+    assert fake_hyrax.last_session.data_loader.consumer.pre_process_calls == len(fake_hyrax._batches)
 
 
 def test_process_alerts_reports_which_writer_failed(monkeypatch):
