@@ -1,5 +1,3 @@
-from babamul.avro import deserialize_alert
-
 from .kafka_consumer import HyraxKafkaConsumer
 
 
@@ -39,5 +37,9 @@ class BabamulConsumer(HyraxKafkaConsumer):
         dict
             The decoded message as a dictionary.
         """
+        try:
+            from babamul.avro import deserialize_alert
+        except ImportError as err:
+            raise ImportError("babamul package is not installed") from err
         alert = deserialize_alert(msg.value())
         return alert
