@@ -47,7 +47,7 @@ def process_alerts(config_filepath=None):
                     continue
 
                 results = session.process(batch)
-                if executor is None:
+                if not writers:
                     continue
 
                 futures = [
