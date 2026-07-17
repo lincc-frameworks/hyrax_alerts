@@ -32,9 +32,9 @@ def process_alerts(config_filepath=None):
     writers = get_writers(h.config)
 
     with ExitStack() as stack:
-        writers = [stack.enter_context(writer) for writer in writers]
         executor = None
         if writers:
+            writers = [stack.enter_context(writer) for writer in writers]
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
 
         with h.infer_stream() as session:

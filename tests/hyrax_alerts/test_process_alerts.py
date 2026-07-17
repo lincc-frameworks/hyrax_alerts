@@ -141,7 +141,7 @@ def test_process_alerts_runs_without_configured_writers(monkeypatch):
     process_alerts()
 
     assert fake_hyrax.last_session is not None
-    assert fake_hyrax.last_session.process_calls == 1
+    assert fake_hyrax.last_session.process_calls == len(fake_hyrax._batches)
 
 
 def test_process_alerts_reports_which_writer_failed(monkeypatch):
