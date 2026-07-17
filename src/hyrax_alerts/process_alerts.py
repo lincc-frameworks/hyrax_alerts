@@ -8,6 +8,8 @@ from hyrax import Hyrax
 
 from hyrax_alerts.writers.base_writer import get_writers
 
+WRITER_THREAD_MULTIPLIER = 2
+
 
 def _run_writer(writer, batch, results):
     """Post-process, filter, and write one batch for one writer."""
@@ -18,7 +20,9 @@ def _run_writer(writer, batch, results):
 
 def _max_writer_workers(writer_count):
     """Return a bounded worker count for parallel writer execution."""
-    return min(writer_count, max(1, (os.cpu_count() or 1) * 2))
+    # Writers are primarily I/O-bound, so allowing modest oversubscription helps
+    # keep slow outputs from serializing the whole batch.
+    return min(writer_count, max(1, (os.cpu_count() or 1) * WRITER_THREAD_MULTIPLIER))
 
 
 def process_alerts(config_filepath=None):

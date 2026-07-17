@@ -6,6 +6,8 @@ import pytest
 from hyrax_alerts.process_alerts import process_alerts
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
+MUTATED_SCORE = 99
+
 
 class _FakeConsumer:
     def pre_filter(self, batch):
@@ -74,7 +76,7 @@ class _MutatingWriter(HyraxAlertsBaseWriter):
         self.ready = ready
 
     def post_process(self, result_batch: list | dict[str, list]) -> list | dict[str, list]:
-        result_batch["score"][0] = 99
+        result_batch["score"][0] = MUTATED_SCORE
         self.ready.set()
         return result_batch
 
