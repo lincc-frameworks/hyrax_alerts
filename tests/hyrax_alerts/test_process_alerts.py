@@ -141,13 +141,14 @@ def test_process_alerts_isolates_results_between_parallel_writers(monkeypatch):
     assert observing_writer.seen_score == 1
 
 
-def test_process_alerts_runs_without_configured_writers(monkeypatch):
-    """Process all batches through Hyrax and the consumer pipeline without configured writers."""
+def test_process_alerts_warns_without_configured_writers(monkeypatch, caplog):
+    """Warn and continue through Hyrax processing when no writers are configured."""
     fake_hyrax = _patch_process_alerts(monkeypatch, [])
-    assert len(fake_hyrax._batches) > 0
+    caplog.set_level("WARNING")
 
     process_alerts()
 
+    assert "No writers configured; continuing without alert writers." in caplog.text
     assert fake_hyrax.last_session is not None
     assert fake_hyrax.last_session.process_calls == len(fake_hyrax._batches)
     assert fake_hyrax.last_session.data_loader.consumer.pre_filter_calls == len(fake_hyrax._batches)

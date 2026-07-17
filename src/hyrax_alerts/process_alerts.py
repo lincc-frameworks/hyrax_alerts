@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -12,6 +13,8 @@ from hyrax_alerts.writers.base_writer import get_writers
 # without creating an excessive number of threads.
 WRITER_THREAD_MULTIPLIER = 2
 
+logger = logging.getLogger(__name__)
+
 
 def _run_writer(writer, batch, results):
     """Post-process, filter, and write one batch for one writer."""
@@ -24,10 +27,6 @@ def _max_writer_workers(writer_count):
     """Return a bounded worker count for parallel writer execution."""
     cpus = os.cpu_count() or 1
     return min(writer_count, max(1, cpus * WRITER_THREAD_MULTIPLIER))
-
-
-def _noop_write_batch(_batch, _results):
-    """Ignore processed batch data and results when no writers are configured."""
 
 
 def _write_batch(executor, writers, batch, results):
@@ -50,13 +49,12 @@ def process_alerts(config_filepath=None):
     writers = get_writers(h.config)
 
     with ExitStack() as stack:
-        write_batch = _noop_write_batch
+        executor = None
         if writers:
             writers = [stack.enter_context(writer) for writer in writers]
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
-
-            def write_batch(batch, results):
-                _write_batch(executor, writers, batch, results)
+        else:
+            logger.warning("No writers configured; continuing without alert writers.")
 
         with h.infer_stream() as session:
             consumer = session.data_loader.dataset._stream
@@ -68,7 +66,8 @@ def process_alerts(config_filepath=None):
                     continue
 
                 results = session.process(batch)
-                write_batch(batch, results)
+                if executor is not None:
+                    _write_batch(executor, writers, batch, results)
 
 
 def main():
