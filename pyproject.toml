@@ -19,9 +19,7 @@ requires-python = ">=3.11"
 dependencies = [
     "hyrax >= 0.10",
     "slack_sdk",
-    "babamul == 0.1.0a7",
-    "llvmlite >= 0.43",
-    "numba >= 0.62",
+    "fastavro >= 1.9.0",
 ]
 
 [project.urls]
