@@ -20,6 +20,7 @@ dependencies = [
     "hyrax",
     "slack_sdk",
     "babamul",
+    "llvmlite >= 0.43",
 ]
 
 [project.urls]
