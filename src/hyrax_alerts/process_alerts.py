@@ -27,7 +27,7 @@ def process_alerts(config_filepath=None):
                 if not batch:
                     continue
 
-                count += len(batch)
+                count += len(batch["object_id"])
                 if limit and count > limit:
                     print(f"Alert limit of {limit} reached. Stopping processing.")
                     break
