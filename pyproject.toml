@@ -21,6 +21,7 @@ dependencies = [
     "slack_sdk",
     "babamul",
     "llvmlite >= 0.43",
+    "numba >= 0.62",
 ]
 
 [project.urls]
