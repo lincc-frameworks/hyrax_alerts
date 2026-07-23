@@ -112,7 +112,8 @@ class _FailingWriter(HyraxAlertsBaseWriter):
 
 def _patch_process_alerts(monkeypatch, writers, results=None):
     batches = [{"object_id": ["alert-1"], "data": {"flux": [1.0]}}]
-    fake_hyrax = _FakeHyrax(config={}, batches=batches, results=results or [1])
+    config = {"hyrax_alerts": {"consumer": {"alert_limit": False}}}
+    fake_hyrax = _FakeHyrax(config=config, batches=batches, results=results or [1])
     monkeypatch.setattr("hyrax_alerts.process_alerts.Hyrax", lambda config_file=None: fake_hyrax)
     monkeypatch.setattr("hyrax_alerts.process_alerts.get_writers", lambda config: writers)
     return fake_hyrax
