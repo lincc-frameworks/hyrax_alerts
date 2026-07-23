@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Callable
 from types import MethodType
 
@@ -6,10 +5,11 @@ import numpy as np
 from hyrax.plugin_utils import update_registry
 
 from hyrax_alerts.callable_loader import load_callable
+from hyrax_alerts.logging_utils import get_logger
 
 WRITER_REGISTRY = {}
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _aligned_batch_length(values):

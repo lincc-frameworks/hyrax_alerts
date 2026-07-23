@@ -1,12 +1,12 @@
 import argparse
-import logging
 from contextlib import ExitStack
 
 from hyrax import Hyrax
 
+from hyrax_alerts.logging_utils import get_logger
 from hyrax_alerts.writers.base_writer import get_writers
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def process_alerts(config_filepath=None):
