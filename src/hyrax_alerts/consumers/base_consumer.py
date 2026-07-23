@@ -80,4 +80,4 @@ class HyraxAlertsBaseConsumer:
         list
             A list of boolean values indicating which items in the batch should be kept.
         """
-        return [True] * len(input_batch)
+        return input_batch
