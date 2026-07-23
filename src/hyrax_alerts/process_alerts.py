@@ -48,6 +48,10 @@ def process_alerts(config_filepath=None):
     h = Hyrax(config_file=config_filepath)
     writers = get_writers(h.config)
 
+    # default limit is false, which means no limit.
+    limit = h.config["hyrax_alerts"]["consumer"]["alert_limit"]
+    count = 0
+
     with ExitStack() as stack:
         executor = None
         if writers:
@@ -64,6 +68,11 @@ def process_alerts(config_filepath=None):
                 batch = consumer.pre_process(batch)
                 if not batch:
                     continue
+
+                count += len(batch["object_id"])
+                if limit and count > limit:
+                    print(f"Alert limit of {limit} reached. Stopping processing.")
+                    break
 
                 results = session.process(batch)
                 if executor is not None:
