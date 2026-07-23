@@ -3,7 +3,6 @@ from copy import deepcopy
 from threading import Barrier, Event
 
 import pytest
-
 from hyrax_alerts.process_alerts import process_alerts
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
