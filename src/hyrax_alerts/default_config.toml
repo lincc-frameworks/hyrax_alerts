@@ -7,3 +7,12 @@ fields = ["image", "label"]
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+# if alert limit is greater than or equal to 0, then process_alerts
+# will run until it hits the provided limit. useful for debugging,
+# especially on high volume streams.
+alert_limit = false
+
+[hyrax_alerts.consumer.BabamulConsumer]
+# whether to keep alerts as the raw dict or instantiate them as
+# lsst/ztf babamul objects.
+raw_alert = false
