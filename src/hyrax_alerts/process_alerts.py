@@ -32,7 +32,7 @@ def process_alerts(config_filepath=None):
 
                 count += len(batch["object_id"])
                 if limit and count > limit:
-                    print(f"Alert limit of {limit} reached. Stopping processing.")
+                    logger.info(f"Alert limit of {limit} reached. Stopping processing.")
                     break
 
                 results = session.process(batch)
