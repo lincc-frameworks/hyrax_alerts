@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -7,14 +6,15 @@ from copy import deepcopy
 
 from hyrax import Hyrax
 
+from hyrax_alerts.logging_utils import get_logger
 from hyrax_alerts.writers.base_writer import get_writers
+
+logger = get_logger(__name__)
+
 
 # Writers are I/O-bound, so a small 2x oversubscription improves throughput
 # without creating an excessive number of threads.
 WRITER_THREAD_MULTIPLIER = 2
-
-logger = logging.getLogger(__name__)
-
 
 def _run_writer(writer, batch, results):
     """Post-process, filter, and write one batch for one writer."""
@@ -62,8 +62,8 @@ def process_alerts(config_filepath=None):
 
         with h.infer_stream() as session:
             consumer = session.data_loader.dataset._stream
-            for _, batch in enumerate(session.data_loader):
-                # TODO: Log "Processing batch {i + 1} with size {len(batch['object_id'])}")
+            for batch_num, batch in enumerate(session.data_loader, start=1):
+                logger.info(f"Processing batch {batch_num} with size {len(batch['object_id'])}")
                 batch = consumer.pre_filter(batch)
                 batch = consumer.pre_process(batch)
                 if not batch:
@@ -71,7 +71,7 @@ def process_alerts(config_filepath=None):
 
                 count += len(batch["object_id"])
                 if limit and count > limit:
-                    print(f"Alert limit of {limit} reached. Stopping processing.")
+                    logger.info(f"Alert limit of {limit} reached. Stopping processing.")
                     break
 
                 results = session.process(batch)

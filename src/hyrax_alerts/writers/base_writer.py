@@ -5,8 +5,11 @@ import numpy as np
 from hyrax.plugin_utils import update_registry
 
 from hyrax_alerts.callable_loader import load_callable
+from hyrax_alerts.logging_utils import get_logger
 
 WRITER_REGISTRY = {}
+
+logger = get_logger(__name__)
 
 
 def _aligned_batch_length(values):
@@ -77,11 +80,11 @@ def get_writers(config):
     """
 
     writers = []
-    for _, writer_config in config["hyrax_alerts"]["writers"].items():
+    for writer_friendly_name, writer_config in config["hyrax_alerts"]["writers"].items():
         writer_class = WRITER_REGISTRY.get(writer_config["writer_class"])
         if writer_class:
             writers.append(writer_class(writer_config))
-    # TODO: Log the writers that were instantiated for debugging purposes
+            logger.info(f"Created writer '{writer_friendly_name}' of class '{writer_config['writer_class']}'")
     return writers
 
 
