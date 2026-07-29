@@ -23,3 +23,18 @@ class HyraxKafkaConsumer(HyraxAlertsBaseConsumer, KafkaStreamDataset):
         """
         HyraxAlertsBaseConsumer.__init__(self, config=config, data_location=data_location)
         KafkaStreamDataset.__init__(self, config=config, data_location=data_location)
+
+    def peek_sample(self):
+        """Overwrite of the `KafkaStreamDataset` function to maintain pre_filter and pre_process
+        consistency when setting up the model for streaming inference.
+        """
+        while not self._stop.is_set():
+            sample = super().peek_sample()
+            sample = self.pre_filter([sample])
+            if sample:
+                sample = sample[0] if isinstance(sample, list) else sample
+                sample = self.pre_process([sample])
+                return sample[0] if isinstance(sample, list) else sample
+            else:
+                # if the sample didn't pass our filtering, then reset the buffer
+                self._buffered = []

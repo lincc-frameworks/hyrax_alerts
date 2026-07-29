@@ -123,7 +123,7 @@ def test_pre_filter_and_pre_process_default_to_noop_on_ingested_batch(monkeypatc
 
     batch = batches[0]
     assert consumer.pre_process(batch) is batch
-    assert consumer.pre_filter(batch) == [True, True]
+    assert consumer.pre_filter(batch) == batch
 
 
 def test_consumer_closed_after_ingesting_mocked_alerts(monkeypatch):
@@ -135,3 +135,46 @@ def test_consumer_closed_after_ingesting_mocked_alerts(monkeypatch):
     list(consumer)
 
     assert fake_consumer.closed
+
+
+def test_peek_sample_pre_filter(monkeypatch):
+    """peek_sample respects a pre_filter hook, skipping messages that return None."""
+    dataset = _build_consumer(batch_size=5, batch_flush_timeout=0.0)
+    messages = [_make_message("first", [[1.0]]), _make_message("second", [[2.0]])]
+    _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
+
+    def _test_pre_filter(self, batch):
+        # Only allow the second message to be processed
+        good_batch = []
+        for s in batch:
+            if s["object_id"] == "second":
+                good_batch.append(s)
+        return good_batch
+
+    dataset.pre_filter = lambda sample: _test_pre_filter(dataset, sample)
+
+    peeked = dataset.peek_sample()
+    assert peeked["object_id"] == "second"
+    # also ensure that buffer was wiped
+    assert len(dataset._buffered) == 1
+    assert dataset._buffered[0]["object_id"] == "second"
+
+
+def test_peek_sample_pre_process(monkeypatch):
+    """peek_sample respects a pre_process hook, transforming messages before returning."""
+    dataset = _build_consumer(batch_size=5, batch_flush_timeout=0.0)
+    messages = [_make_message("first", [[1.0]])]
+    _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
+
+    def _test_pre_process(self, batch):
+        # Transform the message by adding a new field
+        for s in batch:
+            print(s)
+            s["image"] = [[2.0]]
+        return batch
+
+    dataset.pre_process = lambda sample: _test_pre_process(dataset, sample)
+
+    peeked = dataset.peek_sample()
+    assert peeked["object_id"] == "first"
+    assert peeked["image"] == [[2.0]]
