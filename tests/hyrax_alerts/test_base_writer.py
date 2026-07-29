@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
+from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter, get_writers
 
 
 class DummyWriter(HyraxAlertsBaseWriter):
@@ -192,3 +192,35 @@ def test_writer_context_manager_calls_close():
         assert writer.closed is False
 
     assert writer.closed is True
+
+
+def test_get_writers_returns_empty_list_when_no_writers_configured():
+    """Test that get_writers returns an empty list when no writers are configured."""
+    writers = get_writers({"hyrax_alerts": {}})
+    assert writers == []
+
+
+def test_get_writers_returns_writer_instances():
+    """Test that get_writers returns instances of the configured writers."""
+    config = {
+        "hyrax_alerts": {
+            "writers": {
+                "dummy_writer1": {
+                    "writer_class": "DummyWriter",
+                },
+                "dummy_writer2": {
+                    "writer_class": "DummyWriter",
+                },
+            }
+        }
+    }
+
+    # Register DummyWriter in the WRITER_REGISTRY for this test
+    from hyrax_alerts.writers.base_writer import WRITER_REGISTRY
+
+    WRITER_REGISTRY["DummyWriter"] = DummyWriter
+
+    writers = get_writers(config)
+    assert len(writers) == 2
+    assert isinstance(writers[0], DummyWriter)
+    assert isinstance(writers[1], DummyWriter)

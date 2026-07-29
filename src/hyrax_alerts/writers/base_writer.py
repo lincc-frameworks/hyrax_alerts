@@ -80,11 +80,12 @@ def get_writers(config):
     """
 
     writers = []
-    for writer_friendly_name, writer_config in config["hyrax_alerts"]["writers"].items():
-        writer_class = WRITER_REGISTRY.get(writer_config["writer_class"])
+    writer_config = config.get("hyrax_alerts", {}).get("writers", {})
+    for writer_friendly_name, writer in writer_config.items():
+        writer_class = WRITER_REGISTRY.get(writer["writer_class"])
         if writer_class:
-            writers.append(writer_class(writer_config))
-            logger.info(f"Created writer '{writer_friendly_name}' of class '{writer_config['writer_class']}'")
+            writers.append(writer_class(writer))
+            logger.info(f"Created writer '{writer_friendly_name}' of class '{writer['writer_class']}'")
     return writers
 
 
