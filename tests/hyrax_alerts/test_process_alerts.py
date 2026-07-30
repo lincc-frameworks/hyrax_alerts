@@ -30,7 +30,10 @@ class _FakeDataLoader:
         self.dataset = type("Dataset", (), {"_stream": self.consumer})()
 
     def __iter__(self):
-        return iter(self._batches)
+        for batch in self._batches:
+            batch = self.consumer.pre_filter(batch)
+            batch = self.consumer.pre_process(batch)
+            yield deepcopy(batch)
 
 
 class _FakeSession:

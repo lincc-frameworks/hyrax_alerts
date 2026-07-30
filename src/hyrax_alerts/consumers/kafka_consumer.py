@@ -38,3 +38,15 @@ class HyraxKafkaConsumer(HyraxAlertsBaseConsumer, KafkaStreamDataset):
             else:
                 # if the sample didn't pass our filtering, then reset the buffer
                 self._buffered = []
+
+    def __iter__(self):
+        """Overwrite of the `KafkaStreamDataset` function to maintain pre_filter
+        and pre_process consistency when running up the model for streaming inference.
+        """
+        for batch in super().__iter__():
+            batch = self.pre_filter(batch)
+            if batch:
+                batch = self.pre_process(batch)
+                yield batch
+            else:
+                pass
