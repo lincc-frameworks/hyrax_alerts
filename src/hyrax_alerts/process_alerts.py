@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 # without creating an excessive number of threads.
 WRITER_THREAD_MULTIPLIER = 2
 
+
 def _run_writer(writer, batch, results):
     """Post-process, filter, and write one batch for one writer."""
     processed_results = writer.post_process(deepcopy(results))
@@ -37,8 +38,7 @@ def _write_batch(executor, writers, batch, results):
             future.result()
         except Exception as error:
             message = (
-                f"Writer {writer.__class__.__name__} failed while processing a batch: "
-                f"{type(error).__name__}"
+                f"Writer {writer.__class__.__name__} failed while processing a batch: {type(error).__name__}"
             )
             raise RuntimeError(message) from error
 
