@@ -182,7 +182,7 @@ def test_peek_sample_pre_process(monkeypatch):
 
 def test_pre_filter_applies_through_iter(monkeypatch):
     """The pre_filter hook should be applied to batches yielded by the consumer's iterator."""
-    dataset = _build_consumer(batch_size=5, batch_flush_timeout=0.0)
+    dataset = _build_consumer(batch_size=1, batch_flush_timeout=0.0)
     messages = [_make_message("first", [[1.0]]), _make_message("second", [[2.0]])]
     _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
 
