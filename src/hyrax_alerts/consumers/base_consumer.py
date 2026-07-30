@@ -81,3 +81,22 @@ class HyraxAlertsBaseConsumer:
             The batch data that passed the filter.
         """
         return input_batch
+
+    def __iter__(self):
+        """Overwrite of the `KafkaStreamDataset` function to maintain pre_filter
+        and pre_process consistency when running up the model for streaming inference.
+        """
+        try:
+            for batch in super().__iter__():
+                batch = self.pre_filter(batch)
+                if batch:
+                    batch = self.pre_process(batch)
+                    yield batch
+                else:
+                    pass
+        except AttributeError as err:
+            raise NotImplementedError(
+                "HyraxAlertsBaseConsumer does not have an __iter__ method by default. "
+                "__iter__ must be defined by a hyrax.StreamingDataProvider capable "
+                "subclas (e.g. KafkaStreamDataset)."
+            ) from err

@@ -178,3 +178,46 @@ def test_peek_sample_pre_process(monkeypatch):
     peeked = dataset.peek_sample()
     assert peeked["object_id"] == "first"
     assert peeked["image"] == [[2.0]]
+
+
+def test_pre_filter_applies_through_iter(monkeypatch):
+    """The pre_filter hook should be applied to batches yielded by the consumer's iterator."""
+    dataset = _build_consumer(batch_size=1, batch_flush_timeout=0.0)
+    messages = [_make_message("first", [[1.0]]), _make_message("second", [[2.0]])]
+    _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
+
+    def _test_pre_filter(self, batch):
+        # Only allow the second message to be processed
+        good_batch = []
+        for s in batch:
+            if s["object_id"] == "second":
+                good_batch.append(s)
+        return good_batch
+
+    dataset.pre_filter = lambda sample: _test_pre_filter(dataset, sample)
+
+    batches = list(dataset)
+    assert len(batches) == 1
+    assert len(batches[0]) == 1
+    assert batches[0][0]["object_id"] == "second"
+
+
+def test_pre_process_applies_through_iter(monkeypatch):
+    """The pre_process hook should be applied to batches yielded by the consumer's iterator."""
+    dataset = _build_consumer(batch_size=5, batch_flush_timeout=0.0)
+    messages = [_make_message("first", [[1.0]])]
+    _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
+
+    def _test_pre_process(self, batch):
+        # Transform the message by adding a new field
+        for s in batch:
+            s["image"] = [[2.0]]
+        return batch
+
+    dataset.pre_process = lambda sample: _test_pre_process(dataset, sample)
+
+    batches = list(dataset)
+    assert len(batches) == 1
+    assert len(batches[0]) == 1
+    assert batches[0][0]["object_id"] == "first"
+    assert batches[0][0]["image"] == [[2.0]]

@@ -61,11 +61,8 @@ def process_alerts(config_filepath=None):
             logger.warning("No writers configured; continuing without alert writers.")
 
         with h.infer_stream() as session:
-            consumer = session.data_loader.dataset._stream
             for batch_num, batch in enumerate(session.data_loader, start=1):
                 logger.info(f"Processing batch {batch_num} with size {len(batch['object_id'])}")
-                batch = consumer.pre_filter(batch)
-                batch = consumer.pre_process(batch)
                 if not batch:
                     continue
 
