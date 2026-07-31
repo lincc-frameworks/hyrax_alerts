@@ -48,36 +48,36 @@ class HyraxAlertsBaseConsumer:
             function = load_callable(function)
         self.pre_filter = MethodType(function, self)
 
-    def pre_process(self, input_batch):
+    def pre_process(self, input_batch: list[dict]) -> list[dict]:
         """Default implementation that simply returns the input batch. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
 
         Parameters
         ----------
-        input_batch : list
+        input_batch : list[dict]
             A batch of data to be pre-processed.
 
         Returns
         -------
-        list
+        list[dict]
             The pre-processed batch of data.
         """
         return input_batch
 
-    def pre_filter(self, input_batch: list):
+    def pre_filter(self, input_batch: list[dict]) -> list[dict]:
         """Default implementation that simply returns the input batch. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
 
         Parameters
         ----------
-        input_batch : list
+        input_batch : list[dict]
             A batch of data to be filtered.
 
         Returns
         -------
-        list
+        list[dict]
             The batch data that passed the filter.
         """
         return input_batch

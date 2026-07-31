@@ -2,7 +2,9 @@ import logging
 from copy import deepcopy
 from threading import Barrier, Event
 
+import numpy as np
 import pytest
+from hyrax_alerts.decollation_utils import merge_batch
 from hyrax_alerts.process_alerts import process_alerts
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
@@ -71,7 +73,7 @@ class _BarrierWriter(HyraxAlertsBaseWriter):
         self.barrier = barrier
         self.calls = 0
 
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+    def write(self, result_batch: list[dict]):
         self.calls += 1
         self.barrier.wait(timeout=1)
 
@@ -81,12 +83,12 @@ class _MutatingWriter(HyraxAlertsBaseWriter):
         super().__init__({})
         self.ready = ready
 
-    def post_process(self, result_batch: list | dict[str, list]) -> list | dict[str, list]:
-        result_batch["score"][0] = MUTATED_SCORE
+    def post_process(self, result_batch: list[dict]) -> list[dict]:
+        result_batch[0]["__hyrax_result"]["score"] = MUTATED_SCORE
         self.ready.set()
         return result_batch
 
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+    def write(self, result_batch: list[dict]):
         pass
 
 
@@ -96,20 +98,30 @@ class _ObservingWriter(HyraxAlertsBaseWriter):
         self.ready = ready
         self.seen_score = None
 
-    def post_process(self, result_batch: list | dict[str, list]) -> list | dict[str, list]:
+    def post_process(self, result_batch: list[dict]) -> list[dict]:
         assert self.ready.wait(timeout=1)
-        self.seen_score = result_batch["score"][0]
+        self.seen_score = result_batch[0]["__hyrax_result"]["score"]
         return result_batch
 
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+    def write(self, result_batch: list[dict]):
         pass
+
+
+class _RecordingWriter(HyraxAlertsBaseWriter):
+    def __init__(self, post_filter=None):
+        config = {"post_filter": post_filter} if post_filter else {}
+        super().__init__(config)
+        self.written = None
+
+    def write(self, result_batch: list[dict]):
+        self.written = result_batch
 
 
 class _FailingWriter(HyraxAlertsBaseWriter):
     def __init__(self):
         super().__init__({})
 
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+    def write(self, result_batch: list[dict]):
         raise ValueError("boom")
 
 
@@ -157,6 +169,96 @@ def test_process_alerts_warns_without_configured_writers(monkeypatch, caplog):
     assert fake_hyrax.last_session.process_calls == len(fake_hyrax._batches)
     assert fake_hyrax.last_session.data_loader.consumer.pre_filter_calls == len(fake_hyrax._batches)
     assert fake_hyrax.last_session.data_loader.consumer.pre_process_calls == len(fake_hyrax._batches)
+
+
+def test_merge_batch_builds_one_record_per_alert():
+    """Data batch fields and model results are zipped into per-alert records."""
+    data_batch = {"object_id": ["a", "b"], "data": {"label": [4, 5]}}
+
+    records = merge_batch(data_batch, [10, 20])
+
+    assert records == [
+        {"object_id": "a", "data": {"label": 4}, "__hyrax_result": {"data": 10}},
+        {"object_id": "b", "data": {"label": 5}, "__hyrax_result": {"data": 20}},
+    ]
+
+
+def test_merge_batch_keeps_every_top_level_data_field():
+    """Multiple nested top-level payloads are all carried into each record."""
+    data_batch = {
+        "object_id": ["a", "b"],
+        "data": {"label": [4, 5]},
+        "data_2": {"class": [1, 2]},
+    }
+
+    records = merge_batch(data_batch, [10, 20])
+
+    assert records == [
+        {"object_id": "a", "data": {"label": 4}, "data_2": {"class": 1}, "__hyrax_result": {"data": 10}},
+        {"object_id": "b", "data": {"label": 5}, "data_2": {"class": 2}, "__hyrax_result": {"data": 20}},
+    ]
+
+
+def test_merge_batch_splits_dict_result_batches_per_record():
+    """Dict-shaped result batches are split into one dict per record."""
+    data_batch = {"object_id": ["a", "b"]}
+    result_batch = {"result_1": [1, 2], "result_2": np.array([10.0, 20.0], dtype=np.float32)}
+
+    records = merge_batch(data_batch, result_batch)
+
+    assert [record["object_id"] for record in records] == ["a", "b"]
+    assert [record["__hyrax_result"]["result_1"] for record in records] == [1, 2]
+    assert [record["__hyrax_result"]["result_2"] for record in records] == [10.0, 20.0]
+
+
+def test_merge_batch_normalizes_list_results_under_data():
+    """List-shaped result batches are wrapped so __hyrax_result is always a dict."""
+    data_batch = {"object_id": ["a", "b"]}
+
+    records = merge_batch(data_batch, np.array([1.5, 2.5], dtype=np.float32))
+
+    assert [record["__hyrax_result"] for record in records] == [{"data": 1.5}, {"data": 2.5}]
+
+
+def test_merge_batch_rejects_length_mismatch():
+    """A result batch that is not aligned to the data batch raises a ValueError."""
+    data_batch = {"object_id": ["a", "b"], "data": {"label": [4, 5]}}
+
+    with pytest.raises(ValueError, match="same length to preserve alignment"):
+        merge_batch(data_batch, [1])
+
+
+def test_merge_batch_rejects_misaligned_dict_result_batch_fields():
+    """Dict-shaped result batches must have aligned field lengths."""
+    data_batch = {"object_id": ["a", "b", "c"]}
+    result_batch = {"result_1": [1, 2, 3], "result_2": [10, 20]}
+
+    with pytest.raises(ValueError, match="share the same length"):
+        merge_batch(data_batch, result_batch)
+
+
+def test_process_alerts_writes_merged_records(monkeypatch):
+    """Writers receive the merged records rather than parallel batches."""
+    writer = _RecordingWriter()
+    _patch_process_alerts(monkeypatch, [writer])
+
+    process_alerts()
+
+    assert writer.written == [{"object_id": "alert-1", "data": {"flux": 1.0}, "__hyrax_result": {"data": 1}}]
+
+
+def test_process_alerts_writes_only_records_kept_by_post_filter(monkeypatch):
+    """Records dropped by post_filter never reach the writer."""
+
+    def drop_everything(self, result_batch):
+        return []
+
+    writer = _RecordingWriter(post_filter=drop_everything)
+    _patch_process_alerts(monkeypatch, [writer])
+
+    process_alerts()
+
+    assert writer.written == []
 
 
 def test_process_alerts_reports_which_writer_failed(monkeypatch):
