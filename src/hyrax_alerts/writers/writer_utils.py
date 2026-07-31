@@ -16,7 +16,13 @@ WRITER_THREAD_MULTIPLIER = 2
 def _run_writer(writer, records):
     """Post-process, filter, and write one batch of records for one writer."""
     processed_results = writer.post_process(deepcopy(records))
+    # Should do some comparison here, but hard to say how since users
+    # have the ability to modify the contents of each record in the batch.
     filtered_results = writer.post_filter(processed_results)
+    removed_batch = [item for item in processed_results if item not in filtered_results]
+    if removed_batch:
+        logger.info(f"Removed {len(removed_batch)} items from batch due to post_filter.")
+        logger.info("A future release will record the removed items in the output for debugging purposes.")
     writer.write(filtered_results)
 
 

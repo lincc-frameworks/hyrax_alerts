@@ -3,6 +3,10 @@ from types import MethodType
 from hyrax.plugin_utils import update_registry
 
 from hyrax_alerts.callable_loader import load_callable
+from hyrax_alerts.logging_utils import get_logger
+
+logger = get_logger(__name__)
+
 
 CONSUMER_REGISTRY = {}
 
@@ -88,10 +92,18 @@ class HyraxAlertsBaseConsumer:
         """
         try:
             for batch in super().__iter__():
-                batch = self.pre_filter(batch)
-                if batch:
-                    batch = self.pre_process(batch)
-                    yield batch
+                filtered_batch = self.pre_filter(batch)
+                removed_batch = [item for item in batch if item not in filtered_batch]
+                if removed_batch:
+                    logger.info(f"Removed {len(removed_batch)} items from batch due to pre_filter.")
+                    logger.info(
+                        "A future release will record the removed items in the output for debugging purposes."
+                    )
+                if filtered_batch:
+                    processed_batch = self.pre_process(filtered_batch)
+                    # Should do some comparison here, but hard to say how since users
+                    # have the ability to modify the contents of each record in the batch.
+                    yield processed_batch
                 else:
                     pass
         except AttributeError as err:
