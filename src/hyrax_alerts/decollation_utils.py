@@ -43,7 +43,7 @@ def merge_batch(data_batch: dict, result_batch: list | dict[str, list]) -> list[
 
     Example:
     # before merging:
-    >>> data_batch = {
+    data_batch = {
         "object_id": ["id1", "id2"],
         "data": {
             "field_1": [10, 20],
@@ -52,10 +52,10 @@ def merge_batch(data_batch: dict, result_batch: list | dict[str, list]) -> list[
     }
 
     # if the model returns a list of results:
-    >>> results = [<numpy array 1>, <numpy array 2>]
+    results = [<numpy array 1>, <numpy array 2>]
 
     # after merging:
-    >>> merged = [
+    merged = [
         {
             "object_id": "id1",
             "data": {
@@ -79,13 +79,13 @@ def merge_batch(data_batch: dict, result_batch: list | dict[str, list]) -> list[
     ]
 
     # if the model returns a dictionary of results:
-    >>> results = {
+    results = {
         "prediction": [<numpy array 1>, <numpy array 2>],
         "confidence": [<numpy_3>, <numpy_4>],
     }
 
     # after merging:
-    >>> merged = [
+    merged = [
         {
             "object_id": "id1",
             "data": {
