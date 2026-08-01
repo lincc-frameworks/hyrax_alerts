@@ -19,7 +19,7 @@ requires-python = ">=3.11"
 dependencies = [
     "hyrax >= 0.10",
     "slack_sdk",
-    "fastavro >= 1.9.0",
+    "fastavro >= 1.12.2",
 ]
 
 [project.urls]
