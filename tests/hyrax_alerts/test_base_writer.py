@@ -1,156 +1,76 @@
-import numpy as np
-import pytest
-from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter, get_writers
+from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
+from hyrax_alerts.writers.writer_utils import get_writers
 
 
 class DummyWriter(HyraxAlertsBaseWriter):
     """Minimal concrete writer for exercising shared writer behavior."""
 
-    def write(self, data_batch: list, result_batch: list):
+    def write(self, result_batch: list[dict]):
         """Dummy write method that just stores the last written batch."""
-        self.last_written = (data_batch, result_batch)
+        self.last_written = result_batch
 
 
-def test_filter_batches_keeps_all_results_by_default():
+def _records():
+    """Return a batch of records in the shape writers receive them."""
+    return [
+        {"object_id": "a", "data": {"label": 4}, "__hyrax_result": {"data": 1}},
+        {"object_id": "b", "data": {"label": 5}, "__hyrax_result": {"data": 2}},
+        {"object_id": "c", "data": {"label": 6}, "__hyrax_result": {"data": 3}},
+    ]
+
+
+def test_post_filter_keeps_all_results_by_default():
     """Test that the default post_filter behavior keeps all results."""
     writer = DummyWriter(config={})
-    data_batch = {"object_id": ["a", "b"], "data": {"label": [4, 5]}}
+    records = _records()
 
-    filtered_data, filtered_results = writer._post_filter_batches(data_batch, [1, 2])
-
-    assert filtered_data == data_batch
-    assert filtered_results == [1, 2]
+    assert writer.post_filter(records) == records
 
 
-def test_filter_batches_uses_boolean_selector_to_keep_alignment():
-    """Test that a custom post_filter function correctly keeps results based on
-    a boolean selector."""
+def test_post_filter_returns_the_filtered_records():
+    """A custom post_filter returns only the records it keeps."""
 
     def keep_edges(self, result_batch):
-        return [True, False, True]
+        return [record for record in result_batch if record["__hyrax_result"]["data"] != 2]
 
     writer = DummyWriter(config={"post_filter": keep_edges})
-    data_batch = {"object_id": ["a", "b", "c"], "data": {"label": [4, 5, 6]}}
 
-    filtered_data, filtered_results = writer._post_filter_batches(data_batch, [1, 2, 3])
+    filtered = writer.post_filter(_records())
 
-    assert filtered_data == {"object_id": ["a", "c"], "data": {"label": [4, 6]}}
-    assert filtered_results == [1, 3]
-
-
-def test_filter_batches_keeps_alignment_across_multiple_nested_payloads():
-    """Filtering should preserve alignment across multiple nested top-level payloads."""
-
-    def keep_edges(self, result_batch):
-        return [True, False, True]
-
-    writer = DummyWriter(config={"post_filter": keep_edges})
-    data_batch = {
-        "object_id": ["a", "b", "c"],
-        "data": {"label": [4, 5, 6]},
-        "data_2": {"class": [1, 2, 2]},
-    }
-
-    filtered_data, filtered_results = writer._post_filter_batches(data_batch, [1, 2, 3])
-
-    assert filtered_data == {
-        "object_id": ["a", "c"],
-        "data": {"label": [4, 6]},
-        "data_2": {"class": [1, 2]},
-    }
-    assert filtered_results == [1, 3]
+    assert filtered == [
+        {"object_id": "a", "data": {"label": 4}, "__hyrax_result": {"data": 1}},
+        {"object_id": "c", "data": {"label": 6}, "__hyrax_result": {"data": 3}},
+    ]
 
 
-def test_filter_batches_preserves_dict_result_batch_types():
-    """Dict-shaped result batches should be filtered with types preserved."""
+def test_post_filter_can_drop_every_record():
+    """A post_filter that keeps nothing returns an empty batch rather than failing."""
 
-    def keep_edges(self, result_batch):
-        return [True, False, True]
+    def keep_nothing(self, result_batch):
+        return []
 
-    writer = DummyWriter(config={"post_filter": keep_edges})
-    data_batch = {
-        "object_id": ["a", "b", "c"],
-        "data": {"label": [4, 5, 6]},
-    }
-    result_batch = {
-        "result_1": [1, 2, 3],
-        "result_2": np.array([10.0, 20.0, 30.0], dtype=np.float32),
-    }
+    writer = DummyWriter(config={"post_filter": keep_nothing})
 
-    filtered_data, filtered_results = writer._post_filter_batches(data_batch, result_batch)
-
-    assert filtered_data == {"object_id": ["a", "c"], "data": {"label": [4, 6]}}
-    assert isinstance(filtered_results, dict)
-    assert filtered_results["result_1"] == [1, 3]
-    assert isinstance(filtered_results["result_2"], np.ndarray)
-    np.testing.assert_array_equal(filtered_results["result_2"], np.array([10.0, 30.0], dtype=np.float32))
+    assert writer.post_filter(_records()) == []
 
 
-def test_filter_batches_preserves_numpy_backed_data_types():
-    """NumPy-backed top-level fields should stay NumPy-backed after filtering."""
+def test_post_process_can_reshape_records_before_filtering():
+    """post_process output is what post_filter receives."""
 
-    def keep_edges(self, result_batch):
-        return [True, False, True]
+    def add_score(self, result_batch):
+        for record in result_batch:
+            record["score"] = record["__hyrax_result"]["data"] * 10
+        return result_batch
 
-    writer = DummyWriter(config={"post_filter": keep_edges})
-    data_batch = {
-        "object_id": np.array(["a", "b", "c"]),
-        "data": {
-            "image": np.arange(12, dtype=np.float32).reshape(3, 2, 2),
-            "label": np.array([1.0, 2.0, 3.0], dtype=np.float32),
-        },
-    }
+    def keep_high_scores(self, result_batch):
+        return [record for record in result_batch if record["score"] > 10]
 
-    filtered_data, filtered_results = writer._post_filter_batches(data_batch, [10, 20, 30])
+    writer = DummyWriter(config={"post_process": add_score, "post_filter": keep_high_scores})
 
-    assert isinstance(filtered_data["object_id"], np.ndarray)
-    assert isinstance(filtered_data["data"]["image"], np.ndarray)
-    assert isinstance(filtered_data["data"]["label"], np.ndarray)
-    np.testing.assert_array_equal(filtered_data["object_id"], np.array(["a", "c"]))
-    np.testing.assert_array_equal(filtered_data["data"]["label"], np.array([1.0, 3.0], dtype=np.float32))
-    np.testing.assert_array_equal(
-        filtered_data["data"]["image"], np.arange(12, dtype=np.float32).reshape(3, 2, 2)[[0, 2]]
-    )
-    assert filtered_results == [10, 30]
+    filtered = writer.post_filter(writer.post_process(_records()))
 
-
-def test_filter_batches_rejects_selector_length_mismatch():
-    """Test that a post_filter function returning a selector of the wrong length
-    raises a ValueError."""
-
-    def invalid_selector(self, result_batch):
-        return result_batch[:1]
-
-    writer = DummyWriter(config={"post_filter": invalid_selector})
-    data_batch = {"object_id": ["a", "b"], "data": {"label": [4, 5]}}
-
-    with pytest.raises(ValueError, match="one entry per result"):
-        writer._post_filter_batches(data_batch, [1, 2])
-
-
-def test_filter_batches_rejects_misaligned_dict_result_batch_fields():
-    """Dict-shaped result batches must have aligned field lengths."""
-    writer = DummyWriter(config={})
-    data_batch = {"object_id": ["a", "b", "c"], "data": {"label": [4, 5, 6]}}
-    result_batch = {"result_1": [1, 2, 3], "result_2": [10, 20]}
-
-    with pytest.raises(ValueError, match="share the same length"):
-        writer._post_filter_batches(data_batch, result_batch)
-
-
-def test_filter_batches_coerces_non_boolean_entries_to_mask():
-    """Numeric selectors are coerced to a boolean mask after conversion."""
-
-    def invalid_selector(self, result_batch):
-        return [1, 0]
-
-    writer = DummyWriter(config={"post_filter": invalid_selector})
-    data_batch = {"object_id": ["a", "b"], "data": {"label": [4, 5]}}
-
-    filtered_data, filtered_results = writer._post_filter_batches(data_batch, [1, 2])
-
-    assert filtered_data == {"object_id": ["a"], "data": {"label": [4]}}
-    assert filtered_results == [1]
+    assert [record["object_id"] for record in filtered] == ["b", "c"]
+    assert [record["score"] for record in filtered] == [20, 30]
 
 
 def test_registering_callable_from_dotted_path_works_for_post_functions():
@@ -162,12 +82,13 @@ def test_registering_callable_from_dotted_path_works_for_post_functions():
             "post_filter": "hyrax_alerts.example_functions.example_post_filter",
         }
     )
+    records = _records()
 
-    processed = writer.post_process([1, 2, 3])
-    selection = writer.post_filter([1, 2, 3])
+    processed = writer.post_process(records)
+    filtered = writer.post_filter(processed)
 
-    assert processed == [1, 2, 3]
-    assert selection == [True, True, True]
+    assert processed == records
+    assert filtered == records
 
 
 def test_writer_context_manager_calls_close():
@@ -182,7 +103,7 @@ def test_writer_context_manager_calls_close():
         def close(self):
             self.closed = True
 
-        def write(self, data_batch: list, result_batch: list):
+        def write(self, result_batch: list[dict]):
             pass
 
     writer = ClosableWriter(config={})

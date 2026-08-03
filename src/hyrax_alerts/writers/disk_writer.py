@@ -66,14 +66,12 @@ class HyraxAlertsDiskWriter(HyraxAlertsBaseWriter):
 
         self.file_counter = 0
 
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
-        """Write a batch of results and their object IDs to disk."""
-        if isinstance(result_batch, dict):
-            result_batch["_object_id"] = data_batch["object_id"]
-        else:
-            result_batch = {"_object_id": data_batch["object_id"], "result": result_batch}
-
-        np.save(os.path.join(self.output_location, f"batch_{self.file_counter:08d}.npy"), result_batch)
+    def write(self, result_batch: list[dict]):
+        """Write a batch of result dictionaries to disk."""
+        np.save(
+            os.path.join(self.output_location, f"batch_{self.file_counter:08d}.npy"),
+            np.array(result_batch, dtype=object),
+        )
 
         self.file_counter += 1
 

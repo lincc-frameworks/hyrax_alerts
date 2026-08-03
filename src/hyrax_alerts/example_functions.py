@@ -44,12 +44,12 @@ def example_post_process(self, result_batch):
     ----------
     self : object
         The instance of the class calling this function.
-    result_batch : list
+    result_batch : list[dict]
         A batch of results to be post-processed.
 
     Returns
     -------
-    list
+    list[dict]
         The post-processed batch of results, unchanged from the input.
     """
     print("Example post-processing function called.")
@@ -63,14 +63,13 @@ def example_post_filter(self, result_batch):
     ----------
     self : object
         The instance of the class calling this function.
-    result_batch : list
+    result_batch : list[dict]
         A batch of results to be post-filtered.
 
     Returns
     -------
-    list
-        A list of boolean values indicating which results to keep, all True in
-        this example.
+    list[dict]
+        The filtered batch of results, unchanged from the input in this example.
     """
     print("Example post-filtering function called.")
-    return [True] * len(result_batch)
+    return result_batch
