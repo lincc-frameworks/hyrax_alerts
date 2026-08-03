@@ -1,46 +1,13 @@
 import argparse
-import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
-from copy import deepcopy
 
 from hyrax import Hyrax
 
 from hyrax_alerts.logging_utils import get_logger
-from hyrax_alerts.writers.base_writer import get_writers
+from hyrax_alerts.writers.writer_utils import get_writers, max_writer_workers, write_batch
 
 logger = get_logger(__name__)
-
-
-# Writers are I/O-bound, so a small 2x oversubscription improves throughput
-# without creating an excessive number of threads.
-WRITER_THREAD_MULTIPLIER = 2
-
-
-def _run_writer(writer, batch, results):
-    """Post-process, filter, and write one batch for one writer."""
-    processed_results = writer.post_process(deepcopy(results))
-    filtered_batch, filtered_results = writer._post_filter_batches(deepcopy(batch), processed_results)
-    writer.write(filtered_batch, filtered_results)
-
-
-def _max_writer_workers(writer_count):
-    """Return a bounded worker count for parallel writer execution."""
-    cpus = os.cpu_count() or 1
-    return min(writer_count, max(1, cpus * WRITER_THREAD_MULTIPLIER))
-
-
-def _write_batch(executor, writers, batch, results):
-    """Write one processed batch to all configured writers."""
-    futures = [(executor.submit(_run_writer, writer, batch, results), writer) for writer in writers]
-    for future, writer in futures:
-        try:
-            future.result()
-        except Exception as error:
-            message = (
-                f"Writer {writer.__class__.__name__} failed while processing a batch: {type(error).__name__}"
-            )
-            raise RuntimeError(message) from error
 
 
 def process_alerts(config_filepath=None):
@@ -56,7 +23,7 @@ def process_alerts(config_filepath=None):
         executor = None
         if writers:
             writers = [stack.enter_context(writer) for writer in writers]
-            executor = stack.enter_context(ThreadPoolExecutor(max_workers=_max_writer_workers(len(writers))))
+            executor = stack.enter_context(ThreadPoolExecutor(max_workers=max_writer_workers(len(writers))))
         else:
             logger.warning("No writers configured; continuing without alert writers.")
 
@@ -73,7 +40,7 @@ def process_alerts(config_filepath=None):
 
                 results = session.process(batch)
                 if executor is not None:
-                    _write_batch(executor, writers, batch, results)
+                    write_batch(executor, writers, batch, results)
 
 
 def main():

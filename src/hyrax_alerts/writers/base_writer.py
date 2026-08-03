@@ -1,7 +1,6 @@
 from collections.abc import Callable
 from types import MethodType
 
-import numpy as np
 from hyrax.plugin_utils import update_registry
 
 from hyrax_alerts.callable_loader import load_callable
@@ -10,83 +9,6 @@ from hyrax_alerts.logging_utils import get_logger
 WRITER_REGISTRY = {}
 
 logger = get_logger(__name__)
-
-
-def _aligned_batch_length(values):
-    """Return aligned batch length for list/array or dict-of-aligned-fields. Initial
-    return values from Hyrax models were expected to be a single numpy object. However
-    in future releases we will support more complex batch structures that include
-    returning a dictionary of numpy values from the model for each batch element."""
-    if isinstance(values, dict):
-        if not values:
-            raise ValueError("result_batch dictionary must contain at least one aligned field")
-        # set comprehension to collect the lengths of all fields in the dictionary
-        lengths = {len(field_values) for field_values in values.values()}
-        if len(lengths) != 1:
-            raise ValueError("result_batch dictionary fields must share the same length")
-        return lengths.pop()
-    return len(values)
-
-
-def _filter_aligned_values(values, selection_mask):
-    """Filter an aligned collection while preserving array-backed types."""
-
-    # NOTE: if `values` is a dictionary, we recursively filter each field. An example
-    # is when `values` represents a nested data structure within the batch, as in
-    # the "label" portion of {"data": {"label": [4, 5, 6]}}.
-    if isinstance(values, dict):
-        return {
-            field: _filter_aligned_values(field_values, selection_mask)
-            for field, field_values in values.items()
-        }
-
-    # NOTE: We assume that it will always be the case that `values` is an np.ndarray
-    # but we include a list comprehension fallback just in case.
-    if isinstance(values, np.ndarray):
-        return values[selection_mask]
-    return [value for value, keep_result in zip(values, selection_mask, strict=True) if keep_result]
-
-
-def _filter_data_batch(data_batch, selection_mask):
-    """Filter a structured batch while preserving aligned top-level fields."""
-    # Filter the "object_id" key/value
-    filtered_data_batch = {"object_id": _filter_aligned_values(data_batch["object_id"], selection_mask)}
-
-    # Filter the remaining top-level friendly name datasets. We assume that only
-    # one top-level friendly name exists because we are operating on streaming data
-    # but this is built to handle multiple top-level friendly name datasets to handle
-    # any future scenarios where multiple top-level friendly name datasets might exist.
-    filtered_data_batch.update(
-        {
-            field: _filter_aligned_values(values, selection_mask)
-            for field, values in data_batch.items()
-            if field != "object_id"
-        }
-    )
-    return filtered_data_batch
-
-
-def get_writers(config):
-    """Return a list of writer instances based on the provided configuration.
-    Parameters
-    ----------
-    config : dict
-        Configuration dictionary containing writer settings.
-
-    Returns
-    -------
-    list
-        A list of instantiated writer objects.
-    """
-
-    writers = []
-    writer_config = config.get("hyrax_alerts", {}).get("writers", {})
-    for writer_friendly_name, writer in writer_config.items():
-        writer_class = WRITER_REGISTRY.get(writer["writer_class"])
-        if writer_class:
-            writers.append(writer_class(writer))
-            logger.info(f"Created writer '{writer_friendly_name}' of class '{writer['writer_class']}'")
-    return writers
 
 
 class HyraxAlertsBaseWriter:
@@ -134,7 +56,7 @@ class HyraxAlertsBaseWriter:
             function = load_callable(function)
         self.post_filter = MethodType(function, self)
 
-    def post_process(self, result_batch: list) -> list:
+    def post_process(self, result_batch: list[dict]) -> list[dict]:
         """Default implementation that simply returns the input batch. Users can
         provide their own implementations by specifying the dotted path to a callable
         function in the configuration file.
@@ -149,20 +71,21 @@ class HyraxAlertsBaseWriter:
 
         Parameters
         ----------
-        result_batch : list
+        result_batch : list[dict]
             A batch of results to be post-processed.
 
         Returns
         -------
-        list
-            The post-processed batch of results.
+        list[dict]
+            The post-processed batch of results as a list of dictionaries. Each
+            dictionary corresponds to a single result in the batch.
         """
         return result_batch
 
-    def post_filter(self, result_batch: list | dict[str, list]) -> list[bool]:
-        """Return a boolean selector aligned to ``result_batch``. Users can
-        provide their own implementations by specifying the dotted path to a callable
-        function in the configuration file.
+    def post_filter(self, result_batch: list[dict]) -> list[dict]:
+        """Return a filtered list of results. Users can provide their own
+        implementations by specifying the dotted path to a callable function in
+        the configuration file.
 
         For example:
         .. code-block:: toml
@@ -174,50 +97,31 @@ class HyraxAlertsBaseWriter:
 
         Parameters
         ----------
-        result_batch : list | dict[str, list]
+        result_batch : list[dict]
             A batch of results to be filtered.
 
         Returns
         -------
-        list[bool]
-            A list of booleans indicating which results to keep.
+        list[dict]
+            The filtered list of results as a list of dictionaries. Each
+            dictionary corresponds to a single result in the batch.
         """
-        return [True] * _aligned_batch_length(result_batch)
+        return result_batch
 
-    def _post_filter_batches(
-        self, data_batch: dict, result_batch: list | dict[str, list]
-    ) -> tuple[dict, list | dict[str, list]]:
-        """Filter result and data batches while preserving their alignment."""
-        batch_length = len(data_batch["object_id"])
-        result_batch_length = _aligned_batch_length(result_batch)
-
-        if batch_length != result_batch_length:
-            raise ValueError("data_batch and result_batch must be the same length to preserve alignment")
-
-        selection = self.post_filter(result_batch)
-        # convert the returned selection to a numpy bool array for faster filtering
-        selection_mask = np.asarray(selection, dtype=bool)
-
-        if len(selection_mask) != result_batch_length:
-            raise ValueError("post_filter must return a boolean selector with one entry per result")
-
-        # filter the data batch using the selection mask
-        filtered_data_batch = _filter_data_batch(data_batch, selection_mask)
-
-        # filter the result batch using the same helper to preserve input types
-        filtered_result_batch = _filter_aligned_values(result_batch, selection_mask)
-        return filtered_data_batch, filtered_result_batch
-
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+    def write(self, result_batch: list[dict]):
         """Abstract method to write a batch of results. Subclasses must implement
         this method.
 
         Parameters
         ----------
-        data_batch : dict
-            A batch of input data corresponding to the results.
-        result_batch : list | dict[str, list]
-            A batch of model results that have been post-processed and filtered.
+        result_batch : list[dict]
+            A batch of results that have been post-processed and filtered. Each
+            dictionary holds the input data for one alert plus its model output
+            under the ``__hyrax_result`` key, which is always a dict keyed by
+            result field name. If the model returns only a single result field,
+            it will be normalized under the ``data`` key. If the model returns
+            multiple result fields, they will be preserved under their original
+            field names.
 
         Returns
         -------

@@ -24,11 +24,17 @@ def test_init_requires_channel():
         HyraxAlertsSlackWriter(config={"slack_token": "xoxb-test-token"})
 
 
+def _records(object_ids):
+    """Return a batch of records in the shape writers receive them."""
+    return [
+        {"object_id": object_id, "__hyrax_result": {"data": index}}
+        for index, object_id in enumerate(object_ids)
+    ]
+
+
 def test_format_batch_summary_lists_object_ids():
     """The summary reports the count and lists the object ids."""
-    data_batch = {"object_id": [101, 102, 103]}
-
-    summary = _format_batch_summary(data_batch, [1, 2, 3])
+    summary = _format_batch_summary(_records([101, 102, 103]))
 
     assert "3 alerts" in summary
     assert "101, 102, 103" in summary
@@ -36,7 +42,7 @@ def test_format_batch_summary_lists_object_ids():
 
 def test_format_batch_summary_uses_singular_for_one_result():
     """A single-object batch uses the singular 'alert'."""
-    summary = _format_batch_summary({"object_id": [101]}, [1])
+    summary = _format_batch_summary(_records([101]))
 
     assert "1 alert -" in summary
     assert "1 alerts" not in summary
@@ -44,9 +50,7 @@ def test_format_batch_summary_uses_singular_for_one_result():
 
 def test_format_batch_summary_truncates_long_batches():
     """Object ids beyond max_object_ids are truncated with a '+N more' suffix."""
-    data_batch = {"object_id": list(range(15))}
-
-    summary = _format_batch_summary(data_batch, list(range(15)), max_object_ids=10)
+    summary = _format_batch_summary(_records(range(15)), max_object_ids=10)
 
     assert "15 alerts" in summary
     assert "(+5 more)" in summary
@@ -54,7 +58,7 @@ def test_format_batch_summary_truncates_long_batches():
 
 def test_format_batch_summary_handles_empty_batch():
     """An empty batch produces a sensible message rather than failing."""
-    summary = _format_batch_summary({"object_id": []}, [])
+    summary = _format_batch_summary([])
 
     assert "no objects" in summary
 
@@ -64,7 +68,7 @@ def test_write_posts_message_to_configured_channel():
     writer = HyraxAlertsSlackWriter(config=_valid_config())
     writer.client = MagicMock()
 
-    writer.write({"object_id": [101, 102]}, [1, 2])
+    writer.write(_records([101, 102]))
 
     writer.client.chat_postMessage.assert_called_once()
     _, kwargs = writer.client.chat_postMessage.call_args
@@ -79,7 +83,7 @@ def test_write_swallows_slack_api_error():
     writer.client.chat_postMessage.side_effect = SlackApiError("boom", response={})
 
     # Should not raise.
-    writer.write({"object_id": [101]}, [1])
+    writer.write(_records([101]))
 
 
 def test_writer_registered_in_registry():

@@ -14,18 +14,15 @@ from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 DEFAULT_MAX_OBJECT_IDS = 10
 
 
-def _format_batch_summary(
-    data_batch: dict, result_batch: list | dict[str, list], max_object_ids: int = DEFAULT_MAX_OBJECT_IDS
-) -> str:
+def _format_batch_summary(result_batch: list[dict], max_object_ids: int = DEFAULT_MAX_OBJECT_IDS) -> str:
     """Build a short, human-readable summary of a batch for posting to Slack.
 
     Parameters
     ----------
-    data_batch : dict
-        A batch of input data. Expected to contain an ``object_id`` entry, as
-        produced by the Hyrax alerts consumers.
-    result_batch : list | dict[str, list]
-        The post-processed, post-filtered model results for this batch.
+    result_batch : list[dict]
+        The post-processed, post-filtered results for this batch. Each dictionary
+        is expected to contain an ``object_id`` entry, as produced by the Hyrax
+        alerts consumers.
     max_object_ids : int, optional
         Maximum number of object ids to list explicitly before truncating,
         by default ``DEFAULT_MAX_OBJECT_IDS``.
@@ -35,7 +32,7 @@ def _format_batch_summary(
     str
         A summary string suitable for a Slack message.
     """
-    object_ids = list(data_batch.get("object_id", [])) if isinstance(data_batch, dict) else []
+    object_ids = [record["object_id"] for record in result_batch if "object_id" in record]
     count = len(object_ids)
 
     if count == 0:
@@ -90,9 +87,9 @@ class HyraxAlertsSlackWriter(HyraxAlertsBaseWriter):
 
         self.client = WebClient(token=self.slack_token)
 
-    def write(self, data_batch: dict, result_batch: list | dict[str, list]):
+    def write(self, result_batch: list[dict]):
         """Post a summary of a batch of results to the configured Slack channel."""
-        summary = _format_batch_summary(data_batch, result_batch, self.max_object_ids)
+        summary = _format_batch_summary(result_batch, self.max_object_ids)
 
         try:
             self.client.chat_postMessage(channel=self.channel, text=summary)
