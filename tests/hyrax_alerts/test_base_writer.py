@@ -1,4 +1,5 @@
-from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
+from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter, get_reject_writer, instantiate_writer
+from hyrax_alerts.writers.disk_writer import HyraxAlertsDiskWriter
 from hyrax_alerts.writers.writer_utils import get_writers
 
 
@@ -145,3 +146,56 @@ def test_get_writers_returns_writer_instances():
     assert len(writers) == 2
     assert isinstance(writers[0], DummyWriter)
     assert isinstance(writers[1], DummyWriter)
+
+
+def test_instantiate_writer_returns_none_for_unregistered_class():
+    """An unknown writer_class is skipped rather than raising."""
+    assert instantiate_writer({"writer_class": "NotARegisteredWriter"}) is None
+
+
+def test_instantiate_writer_builds_the_named_writer():
+    """A registered writer_class is instantiated with the given config."""
+    writer = instantiate_writer({"writer_class": "DummyWriter"})
+    assert isinstance(writer, DummyWriter)
+
+
+def test_get_reject_writer_returns_none_without_root_or_override():
+    """No reject_output_root and no per-owner override means no reject writer."""
+    assert get_reject_writer({}, "consumer", None) is None
+
+
+def test_get_reject_writer_explicit_config_wins_over_root(tmp_path):
+    """A per-owner reject_writer block overrides the shared root entirely."""
+    tmp_path = tmp_path.resolve()
+    override_dir = tmp_path / "explicit_override"
+    owner_config = {
+        "reject_writer": {
+            "writer_class": "HyraxAlertsDiskWriter",
+            "output_location": str(override_dir),
+        }
+    }
+
+    writer = get_reject_writer(owner_config, "consumer", str(tmp_path / "shared_root"))
+
+    assert isinstance(writer, HyraxAlertsDiskWriter)
+    assert writer.output_location.parent == override_dir
+
+
+def test_get_reject_writer_auto_derives_from_shared_root(tmp_path):
+    """With only reject_output_root set, owners get a disk writer nested under it."""
+    tmp_path = tmp_path.resolve()
+    writer = get_reject_writer({}, "to_disk_0", str(tmp_path))
+
+    assert isinstance(writer, HyraxAlertsDiskWriter)
+    assert writer.output_location.parent == tmp_path / "to_disk_0"
+
+
+def test_get_reject_writer_nests_different_owners_under_the_same_root(tmp_path):
+    """Different owners auto-derived from the same root land in sibling directories."""
+    tmp_path = tmp_path.resolve()
+    consumer_writer = get_reject_writer({}, "consumer", str(tmp_path))
+    disk_writer = get_reject_writer({}, "to_disk_0", str(tmp_path))
+
+    assert consumer_writer.output_location.parent.parent == tmp_path
+    assert disk_writer.output_location.parent.parent == tmp_path
+    assert consumer_writer.output_location.parent != disk_writer.output_location.parent

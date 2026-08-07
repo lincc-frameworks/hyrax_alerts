@@ -2,8 +2,9 @@ import os
 from copy import deepcopy
 
 from hyrax_alerts.decollation_utils import merge_batch
+from hyrax_alerts.filter_utils import apply_filter
 from hyrax_alerts.logging_utils import get_logger
-from hyrax_alerts.writers.base_writer import WRITER_REGISTRY
+from hyrax_alerts.writers.base_writer import get_reject_writer, instantiate_writer
 
 logger = get_logger(__name__)
 
@@ -16,13 +17,16 @@ WRITER_THREAD_MULTIPLIER = 2
 def _run_writer(writer, records):
     """Post-process, filter, and write one batch of records for one writer."""
     processed_results = writer.post_process(deepcopy(records))
-    # Should do some comparison here, but hard to say how since users
-    # have the ability to modify the contents of each record in the batch.
-    filtered_results = writer.post_filter(processed_results)
-    removed_batch = [item for item in processed_results if item not in filtered_results]
+    filtered_results, removed_batch = apply_filter(writer.post_filter, processed_results)
     if removed_batch:
         logger.info(f"Removed {len(removed_batch)} items from batch due to post_filter.")
-        logger.info("A future release will record the removed items in the output for debugging purposes.")
+        if writer.reject_writer is not None:
+            tagged = [{**record, "__hyrax_filter_stage": "post_filter"} for record in removed_batch]
+            writer.reject_writer.write(tagged)
+        else:
+            logger.info(
+                "Configure 'reject_output_root' or this writer's 'reject_writer' to persist removed records."
+            )
     writer.write(filtered_results)
 
 
@@ -60,10 +64,13 @@ def get_writers(config):
     """
 
     writers = []
-    writer_config = config.get("hyrax_alerts", {}).get("writers", {})
-    for writer_friendly_name, writer in writer_config.items():
-        writer_class = WRITER_REGISTRY.get(writer["writer_class"])
-        if writer_class:
-            writers.append(writer_class(writer))
-            logger.info(f"Created writer '{writer_friendly_name}' of class '{writer['writer_class']}'")
+    hyrax_alerts_config = config.get("hyrax_alerts", {})
+    writer_config = hyrax_alerts_config.get("writers", {})
+    reject_output_root = hyrax_alerts_config.get("reject_output_root")
+    for writer_friendly_name, writer_cfg in writer_config.items():
+        writer = instantiate_writer(writer_cfg)
+        if writer is not None:
+            writer.reject_writer = get_reject_writer(writer_cfg, writer_friendly_name, reject_output_root)
+            writers.append(writer)
+            logger.info(f"Created writer '{writer_friendly_name}' of class '{writer_cfg['writer_class']}'")
     return writers

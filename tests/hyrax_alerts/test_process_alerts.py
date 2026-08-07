@@ -125,6 +125,19 @@ class _FailingWriter(HyraxAlertsBaseWriter):
         raise ValueError("boom")
 
 
+class _RecordingRejectWriter(HyraxAlertsBaseWriter):
+    def __init__(self):
+        super().__init__({})
+        self.written = None
+        self.closed = False
+
+    def write(self, result_batch: list[dict]):
+        self.written = result_batch
+
+    def close(self):
+        self.closed = True
+
+
 def _patch_process_alerts(monkeypatch, writers, results=None):
     batches = [{"object_id": ["alert-1"], "data": {"flux": [1.0]}}]
     config = {"hyrax_alerts": {"consumer": {"alert_limit": False}}}
@@ -259,6 +272,43 @@ def test_process_alerts_writes_only_records_kept_by_post_filter(monkeypatch):
     process_alerts()
 
     assert writer.written == []
+
+
+def test_process_alerts_persists_records_removed_by_post_filter(monkeypatch):
+    """Records dropped by post_filter are written to the writer's reject_writer,
+    tagged with the stage that removed them."""
+
+    def drop_everything(self, result_batch):
+        return []
+
+    writer = _RecordingWriter(post_filter=drop_everything)
+    reject_writer = _RecordingRejectWriter()
+    writer.reject_writer = reject_writer
+    _patch_process_alerts(monkeypatch, [writer])
+
+    process_alerts()
+
+    assert writer.written == []
+    assert reject_writer.written == [
+        {
+            "object_id": "alert-1",
+            "data": {"flux": 1.0},
+            "__hyrax_result": {"data": 1},
+            "__hyrax_filter_stage": "post_filter",
+        }
+    ]
+
+
+def test_process_alerts_closes_writer_reject_writer(monkeypatch):
+    """A writer's reject_writer is entered/closed via the same ExitStack as the writer."""
+    writer = _RecordingWriter()
+    reject_writer = _RecordingRejectWriter()
+    writer.reject_writer = reject_writer
+    _patch_process_alerts(monkeypatch, [writer])
+
+    process_alerts()
+
+    assert reject_writer.closed is True
 
 
 def test_process_alerts_reports_which_writer_failed(monkeypatch):

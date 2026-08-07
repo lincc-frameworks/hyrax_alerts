@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from pathlib import Path
 from types import MethodType
 
 from hyrax.plugin_utils import update_registry
@@ -9,6 +10,43 @@ from hyrax_alerts.logging_utils import get_logger
 WRITER_REGISTRY = {}
 
 logger = get_logger(__name__)
+
+
+def instantiate_writer(writer_config: dict) -> "HyraxAlertsBaseWriter | None":
+    """Instantiate a writer from a config dict shaped like a `[hyrax_alerts.writers.<name>]`
+    table (i.e. it must contain a ``writer_class`` key naming a class registered in
+    ``WRITER_REGISTRY``).
+
+    Returns ``None`` if ``writer_class`` is missing or not registered.
+    """
+    writer_class = WRITER_REGISTRY.get(writer_config.get("writer_class"))
+    if writer_class is None:
+        return None
+    return writer_class(writer_config)
+
+
+def get_reject_writer(
+    owner_config: dict, owner_name: str, reject_output_root: str | None
+) -> "HyraxAlertsBaseWriter | None":
+    """Build the reject-writer for one owner (the consumer, or one configured writer).
+
+    If ``owner_config`` defines its own ``reject_writer`` table, that config is used
+    as-is. Otherwise, if a pipeline-wide ``reject_output_root`` is configured, default
+    to a ``HyraxAlertsDiskWriter`` nested under ``<reject_output_root>/<owner_name>``,
+    so every owner's rejected records land under one common parent directory without
+    requiring per-owner configuration. Returns ``None`` if neither is configured.
+    """
+    explicit_config = owner_config.get("reject_writer")
+    if explicit_config:
+        return instantiate_writer(explicit_config)
+    if not reject_output_root:
+        return None
+    return instantiate_writer(
+        {
+            "writer_class": "HyraxAlertsDiskWriter",
+            "output_location": str(Path(reject_output_root) / owner_name),
+        }
+    )
 
 
 class HyraxAlertsBaseWriter:
@@ -37,6 +75,9 @@ class HyraxAlertsBaseWriter:
             self._register_post_process(self.config["post_process"])
         if self.config.get("post_filter"):
             self._register_post_filter(self.config["post_filter"])
+        # Set by get_writers()/get_reject_writer() when a reject_output_root or
+        # per-writer reject_writer config is configured; None otherwise.
+        self.reject_writer = None
 
     def __init_subclass__(cls):
         """Automatically register subclasses in the WRITER_REGISTRY."""

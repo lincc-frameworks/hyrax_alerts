@@ -1,6 +1,12 @@
 #############################
 # Hyrax-alerts configurations
 #############################
+[hyrax_alerts]
+# Records dropped by pre_filter/post_filter are written here, organized per
+# consumer/writer (e.g. ./rejected/consumer/, ./rejected/to_disk_0/). Omit this
+# key to skip persisting removed records (they are still counted in the logs).
+reject_output_root = "./rejected"
+
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
@@ -10,6 +16,12 @@ writer_class = "HyraxAlertsDiskWriter"
 output_location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
+
+# A writer can override where its own rejects go instead of nesting under the
+# pipeline-wide reject_output_root above:
+# [hyrax_alerts.writers.to_disk_0.reject_writer]
+# writer_class = "HyraxAlertsDiskWriter"
+# output_location = "./rejected_to_disk_0_custom"
 
 [hyrax_alerts.writers.to_slack_0]
 writer_class = "HyraxAlertsSlackWriter"

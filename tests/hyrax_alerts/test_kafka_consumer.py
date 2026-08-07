@@ -202,6 +202,55 @@ def test_pre_filter_applies_through_iter(monkeypatch):
     assert batches[0][0]["object_id"] == "second"
 
 
+class _RecordingRejectWriter:
+    """Minimal stand-in for a HyraxAlertsBaseWriter used as a reject_writer."""
+
+    def __init__(self):
+        self.written = []
+        self.closed = False
+
+    def write(self, batch):
+        self.written.extend(batch)
+
+    def close(self):
+        self.closed = True
+
+
+def test_pre_filter_persists_removed_records_to_reject_writer(monkeypatch):
+    """Records dropped by pre_filter are written to the consumer's reject_writer,
+    tagged with the stage that removed them."""
+    dataset = _build_consumer(batch_size=2, batch_flush_timeout=0.0)
+    messages = [_make_message("first", [[1.0]]), _make_message("second", [[2.0]])]
+    _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
+
+    reject_writer = _RecordingRejectWriter()
+    dataset.reject_writer = reject_writer
+
+    def _test_pre_filter(self, batch):
+        return [s for s in batch if s["object_id"] == "second"]
+
+    dataset.pre_filter = lambda sample: _test_pre_filter(dataset, sample)
+
+    list(dataset)
+
+    assert [record["object_id"] for record in reject_writer.written] == ["first"]
+    assert reject_writer.written[0]["__hyrax_filter_stage"] == "pre_filter"
+
+
+def test_reject_writer_is_closed_once_the_stream_is_exhausted(monkeypatch):
+    """The consumer's reject_writer is closed when iteration finishes."""
+    dataset = _build_consumer(batch_size=2, batch_flush_timeout=0.0)
+    messages = [_make_message("first", [[1.0]])]
+    _patch_consumer(monkeypatch, dataset, messages, stop_when_exhausted=True)
+
+    reject_writer = _RecordingRejectWriter()
+    dataset.reject_writer = reject_writer
+
+    list(dataset)
+
+    assert reject_writer.closed is True
+
+
 def test_pre_process_applies_through_iter(monkeypatch):
     """The pre_process hook should be applied to batches yielded by the consumer's iterator."""
     dataset = _build_consumer(batch_size=5, batch_flush_timeout=0.0)

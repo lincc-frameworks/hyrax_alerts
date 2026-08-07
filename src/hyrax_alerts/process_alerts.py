@@ -22,7 +22,12 @@ def process_alerts(config_filepath=None):
     with ExitStack() as stack:
         executor = None
         if writers:
-            writers = [stack.enter_context(writer) for writer in writers]
+            entered_writers = []
+            for writer in writers:
+                entered_writers.append(stack.enter_context(writer))
+                if writer.reject_writer is not None:
+                    stack.enter_context(writer.reject_writer)
+            writers = entered_writers
             executor = stack.enter_context(ThreadPoolExecutor(max_workers=max_writer_workers(len(writers))))
         else:
             logger.warning("No writers configured; continuing without alert writers.")
