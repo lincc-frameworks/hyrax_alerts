@@ -1,16 +1,6 @@
-[hyrax_alerts]
-# Everything this run writes lands in one directory under [general] results_dir:
-#
-#   ./results/<timestamp>-hyrax_alerts-<rand>/
-#       rejected/consumer/   batch_########.npy   <- dropped by pre_filter
-#       rejected/to_disk_0/  batch_########.npy   <- dropped by post_filter
-#       to_disk_0/           batch_########.npy   <- alerts that were kept
-#
-# reject_output_root = true is the default shown above. Set it to false to skip
-# persisting removed records (they are still counted in the logs), or to a path
-# to send them elsewhere as <path>/<timestamp>-hyrax_alerts-<rand>/<member>/.
-reject_output_root = true
-
+#############################
+# Hyrax-alerts configurations
+#############################
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"

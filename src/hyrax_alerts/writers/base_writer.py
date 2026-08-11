@@ -25,6 +25,23 @@ def instantiate_writer(
     per-writer configuration; writers that don't write to disk ignore the key.
 
     Returns ``None`` if ``writer_class`` is missing or not registered.
+
+    Parameters
+    ----------
+    writer_config : dict
+        The configuration dictionary for the writer, which must include a
+        ``writer_class`` key specifying the class name of the writer to instantiate.
+    default_output_dir : str | Path | None, optional
+        The default output directory to use if the writer configuration does not
+        specify its own ``output_location``. If provided, this directory will be used
+        as the output location for the writer. If not provided, the writer will use
+        its own default output location.
+
+    Returns
+    -------
+    HyraxAlertsBaseWriter | None
+        An instance of the specified writer class, or ``None`` if the writer class is
+        not found in the registry.
     """
     writer_class = WRITER_REGISTRY.get(writer_config.get("writer_class"))
     if writer_class is None:
@@ -52,6 +69,24 @@ def get_reject_writer(
     ``rejected_dir`` comes from :func:`hyrax_alerts.run_context.get_rejected_dir` and is
     ``None`` when ``reject_output_root = false`` turns off persisting removed records;
     this returns ``None`` in that case.
+
+    Parameters
+    ----------
+    owner_config : dict
+        The config for the owner (the consumer, or one configured writer). If it
+        contains a ``reject_writer`` table, that config is used to build the reject writer.
+    owner_name : str
+        The name of the owner (the consumer, or one configured writer). Used to create
+        a subdirectory under ``rejected_dir`` for the owner's rejected records.
+    rejected_dir : str | Path | None
+        The shared parent directory for rejected records, or ``None`` when persisting
+        them is turned off.
+
+    Returns
+    -------
+    HyraxAlertsBaseWriter | None
+        The reject writer for the owner, or ``None`` when persisting removed records is
+        turned off.
     """
     explicit_config = owner_config.get("reject_writer")
     if explicit_config:

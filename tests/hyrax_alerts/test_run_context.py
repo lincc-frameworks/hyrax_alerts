@@ -1,6 +1,6 @@
 import re
 
-import numpy as np
+import pytest
 from hyrax_alerts.run_context import get_rejected_dir, get_run_dir, reserve_results_dir, reset_run
 from hyrax_alerts.writers.disk_writer import HyraxAlertsDiskWriter
 from hyrax_alerts.writers.writer_utils import get_writers
@@ -138,12 +138,11 @@ def test_disk_writer_creates_nothing_until_it_writes(tmp_path):
 
 
 def test_disk_writer_does_not_overwrite_existing_batches(tmp_path):
-    """Two writer instances pointed at one directory append rather than clobber."""
+    """Two writer instances pointed at one directory log an error and raise
+    an exception rather than overwriting each other's output."""
     location = {"output_location": str(tmp_path / "shared"), "timestamped_subdirectory": False}
     HyraxAlertsDiskWriter(location).write([{"object_id": "a"}])
-    HyraxAlertsDiskWriter(location).write([{"object_id": "b"}])
+    with pytest.raises(ValueError) as excinfo:
+        HyraxAlertsDiskWriter(location).write([{"object_id": "b"}])
 
-    written = sorted((tmp_path / "shared").glob("batch_*.npy"))
-
-    assert [path.name for path in written] == ["batch_00000000.npy", "batch_00000001.npy"]
-    assert [np.load(path, allow_pickle=True)[0]["object_id"] for path in written] == ["a", "b"]
+    assert "already exists" in str(excinfo.value)

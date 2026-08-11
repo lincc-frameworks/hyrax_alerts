@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 
+from hyrax_alerts.logging_utils import get_logger
 from hyrax_alerts.run_context import RUN_DIR_POSTFIX, reserve_results_dir
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
@@ -13,6 +14,8 @@ from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 # NOTE: Hyrax already has a mode where it will output results to disk from the
 # infer_stream into a timestamped results directory in lance format. However, it
 # doesn't save the source data. This writer _might_ ultimately do that.
+
+logger = get_logger(__name__)
 
 
 class HyraxAlertsDiskWriter(HyraxAlertsBaseWriter):
@@ -51,16 +54,18 @@ class HyraxAlertsDiskWriter(HyraxAlertsBaseWriter):
     def write(self, result_batch: list[dict]):
         """Write a batch of result dictionaries to disk."""
         if not self._directory_ready:
-            self.output_location.mkdir(parents=True, exist_ok=True)
-            self._directory_ready = True
+            try:
+                self.output_location.mkdir(parents=True, exist_ok=False)
+                self._directory_ready = True
+            except FileExistsError as e:
+                logger.error(
+                    f"Output directory {self.output_location} already exists. "
+                    "Multiple HyraxAlertsDiskWriter instances writing to the same "
+                    "directory is not supported. Please check your configuration."
+                )
+                raise ValueError(f"Output directory {self.output_location} already exists.") from e
 
-        # Skip past any batch files already present so a directory shared with
-        # another writer instance is appended to rather than overwritten.
         output_path = self.output_location / f"batch_{self.file_counter:08d}.npy"
-        while output_path.exists():
-            self.file_counter += 1
-            output_path = self.output_location / f"batch_{self.file_counter:08d}.npy"
-
         np.save(output_path, np.array(result_batch, dtype=object))
 
         self.file_counter += 1
