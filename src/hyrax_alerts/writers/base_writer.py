@@ -12,39 +12,57 @@ WRITER_REGISTRY = {}
 logger = get_logger(__name__)
 
 
-def instantiate_writer(writer_config: dict) -> "HyraxAlertsBaseWriter | None":
+def instantiate_writer(
+    writer_config: dict, default_output_dir: str | Path | None = None
+) -> "HyraxAlertsBaseWriter | None":
     """Instantiate a writer from a config dict shaped like a `[hyrax_alerts.writers.<name>]`
     table (i.e. it must contain a ``writer_class`` key naming a class registered in
     ``WRITER_REGISTRY``).
+
+    When ``default_output_dir`` is given and the config does not set its own
+    ``output_location``, the writer is pinned to that exact directory. This is how
+    disk-backed writers land inside this run's output directory without any
+    per-writer configuration; writers that don't write to disk ignore the key.
 
     Returns ``None`` if ``writer_class`` is missing or not registered.
     """
     writer_class = WRITER_REGISTRY.get(writer_config.get("writer_class"))
     if writer_class is None:
         return None
+    if default_output_dir is not None and not writer_config.get("output_location"):
+        writer_config = {
+            **writer_config,
+            "output_location": str(default_output_dir),
+            # The run directory already carries a timestamp; don't add a second one.
+            "timestamped_subdirectory": False,
+        }
     return writer_class(writer_config)
 
 
 def get_reject_writer(
-    owner_config: dict, owner_name: str, reject_output_root: str | None
+    owner_config: dict, owner_name: str, rejected_dir: str | Path | None
 ) -> "HyraxAlertsBaseWriter | None":
     """Build the reject-writer for one owner (the consumer, or one configured writer).
 
     If ``owner_config`` defines its own ``reject_writer`` table, that config is used
-    as-is. Otherwise, if a pipeline-wide ``reject_output_root`` is configured, default
-    to a ``HyraxAlertsDiskWriter`` nested under ``<reject_output_root>/<owner_name>``,
-    so every owner's rejected records land under one common parent directory without
-    requiring per-owner configuration. Returns ``None`` if neither is configured.
+    as-is. Otherwise the owner gets a ``HyraxAlertsDiskWriter`` writing to
+    ``<rejected_dir>/<owner_name>``, so every owner's rejected records land under one
+    common parent directory without requiring per-owner configuration.
+
+    ``rejected_dir`` comes from :func:`hyrax_alerts.run_context.get_rejected_dir` and is
+    ``None`` when ``reject_output_root = false`` turns off persisting removed records;
+    this returns ``None`` in that case.
     """
     explicit_config = owner_config.get("reject_writer")
     if explicit_config:
         return instantiate_writer(explicit_config)
-    if not reject_output_root:
+    if rejected_dir is None:
         return None
     return instantiate_writer(
         {
             "writer_class": "HyraxAlertsDiskWriter",
-            "output_location": str(Path(reject_output_root) / owner_name),
+            "output_location": str(Path(rejected_dir) / owner_name),
+            "timestamped_subdirectory": False,
         }
     )
 
@@ -107,7 +125,6 @@ class HyraxAlertsBaseWriter:
 
             [hyrax_alerts.writers.to_disk]
             writer_class = "HyraxAlertsDiskWriter"
-            output_location = "./results"
             post_process = "hyrax_alerts.example_functions.example_post_process"
 
         Parameters
@@ -133,7 +150,6 @@ class HyraxAlertsBaseWriter:
 
             [hyrax_alerts.writers.to_disk]
             writer_class = "HyraxAlertsDiskWriter"
-            output_location = "./results"
             post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
         Parameters

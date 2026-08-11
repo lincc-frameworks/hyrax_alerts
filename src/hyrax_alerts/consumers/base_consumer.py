@@ -5,6 +5,7 @@ from hyrax.plugin_utils import update_registry
 from hyrax_alerts.callable_loader import load_callable
 from hyrax_alerts.filter_utils import apply_filter
 from hyrax_alerts.logging_utils import get_logger
+from hyrax_alerts.run_context import get_rejected_dir
 from hyrax_alerts.writers.base_writer import get_reject_writer
 
 logger = get_logger(__name__)
@@ -34,8 +35,7 @@ class HyraxAlertsBaseConsumer:
             self._register_pre_process(consumer_config["pre_process"])
         if consumer_config.get("pre_filter"):
             self._register_pre_filter(consumer_config["pre_filter"])
-        reject_output_root = self.config.get("hyrax_alerts", {}).get("reject_output_root")
-        self.reject_writer = get_reject_writer(consumer_config, "consumer", reject_output_root)
+        self.reject_writer = get_reject_writer(consumer_config, "consumer", get_rejected_dir(self.config))
 
     def __init_subclass__(cls):
         """Automatically register subclasses in the CONSUMER_REGISTRY."""
@@ -107,8 +107,8 @@ class HyraxAlertsBaseConsumer:
                             self.reject_writer.write(tagged)
                         else:
                             logger.info(
-                                "Configure 'reject_output_root' or this consumer's 'reject_writer' "
-                                "to persist removed records."
+                                "Removed records are not being persisted; set 'reject_output_root' "
+                                "to something other than false to write them to disk."
                             )
                     if filtered_batch:
                         processed_batch = self.pre_process(filtered_batch)

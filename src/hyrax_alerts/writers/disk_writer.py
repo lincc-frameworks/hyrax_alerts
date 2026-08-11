@@ -1,11 +1,8 @@
-import base64
-import datetime
-import os
-import random
 from pathlib import Path
 
 import numpy as np
 
+from hyrax_alerts.run_context import RUN_DIR_POSTFIX, reserve_results_dir
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
 # NOTE: This is the most naive implementation of a disk writer possible. We need
@@ -18,60 +15,53 @@ from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 # doesn't save the source data. This writer _might_ ultimately do that.
 
 
-def create_results_dir(results_root: str | Path, postfix: str) -> Path:
-    """Creates a results directory for this run.
-
-    Postfix is the verb name of the run e.g. (infer, train, etc)
-
-    The directory is created within the results dir and follows the pattern
-    <timestamp>-<postfix>-<random_str>
-
-    The resulting directory is returned.
-
-    Parameters
-    ----------
-    results_root : str | Path
-        The root, or parent, directory where result directories will be stored.
-    postfix : str
-        The verb name of the run.
-
-    Returns
-    -------
-    Path
-        The path created by this function
-    """
-    results_root = Path(results_root).expanduser().resolve()
-    # This date format is chosen specifically to create a lexical search order
-    # which matches the date order.
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    # Generate 4 random ascii characters to avoid collisions from multiple processes
-    # started in a shared filesystem environment.
-    random_str = base64.urlsafe_b64encode(random.randbytes(3)).decode("ascii")
-    directory = results_root / f"{timestamp}-{postfix}-{random_str}"
-    directory.mkdir(parents=True, exist_ok=False)
-    return directory
-
-
 class HyraxAlertsDiskWriter(HyraxAlertsBaseWriter):
-    """Writer class for writing model output to disk."""
+    """Writer class for writing model output to disk.
+
+    Configuration keys:
+
+    ``output_location``
+        Where to write. Defaults to a directory inside this run's output
+        directory, named after the writer's config name. See
+        :mod:`hyrax_alerts.run_context`.
+    ``timestamped_subdirectory``
+        When ``true`` (the default), ``output_location`` is treated as a root and
+        batches are written to a ``<timestamp>-hyrax_alerts-<random_str>``
+        subdirectory of it, so repeated runs never overwrite each other. When
+        ``false``, ``output_location`` is the exact target directory.
+
+    The directory is created when the first batch is written, so a writer that
+    never receives records leaves nothing behind.
+    """
 
     def __init__(self, config):
         super().__init__(config)
-        self.output_location = config.get("output_location", None)
-        if self.output_location is None:
+        output_location = config.get("output_location", None)
+        if output_location is None:
             raise ValueError("HyraxAlertsDiskWriter requires an 'output_location' path.")
 
-        # create timestamped output directory within the specified output location
-        self.output_location = create_results_dir(self.output_location, "hyrax_alerts")
+        if config.get("timestamped_subdirectory", True):
+            self.output_location = reserve_results_dir(output_location, RUN_DIR_POSTFIX)
+        else:
+            self.output_location = Path(output_location).expanduser().resolve()
 
         self.file_counter = 0
+        self._directory_ready = False
 
     def write(self, result_batch: list[dict]):
         """Write a batch of result dictionaries to disk."""
-        np.save(
-            os.path.join(self.output_location, f"batch_{self.file_counter:08d}.npy"),
-            np.array(result_batch, dtype=object),
-        )
+        if not self._directory_ready:
+            self.output_location.mkdir(parents=True, exist_ok=True)
+            self._directory_ready = True
+
+        # Skip past any batch files already present so a directory shared with
+        # another writer instance is appended to rather than overwritten.
+        output_path = self.output_location / f"batch_{self.file_counter:08d}.npy"
+        while output_path.exists():
+            self.file_counter += 1
+            output_path = self.output_location / f"batch_{self.file_counter:08d}.npy"
+
+        np.save(output_path, np.array(result_batch, dtype=object))
 
         self.file_counter += 1
 

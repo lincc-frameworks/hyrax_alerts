@@ -5,6 +5,7 @@ from contextlib import ExitStack
 from hyrax import Hyrax
 
 from hyrax_alerts.logging_utils import get_logger
+from hyrax_alerts.run_context import reset_run
 from hyrax_alerts.writers.writer_utils import get_writers, max_writer_workers, write_batch
 
 logger = get_logger(__name__)
@@ -13,6 +14,8 @@ logger = get_logger(__name__)
 def process_alerts(config_filepath=None):
     """Main function to process alerts."""
     h = Hyrax(config_file=config_filepath)
+    # Start a fresh run directory so repeated runs in one process don't share output.
+    reset_run()
     writers = get_writers(h.config)
 
     # default limit is false, which means no limit.
