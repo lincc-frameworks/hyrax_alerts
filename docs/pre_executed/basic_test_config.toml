@@ -5,17 +5,25 @@
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
 
+# With no output_location, this writer writes to ./results/<run_dir>/to_disk_0/.
+# Set output_location to send it somewhere else; it then gets its own
+# <timestamp>-hyrax_alerts-<rand> subdirectory inside that location.
 [hyrax_alerts.writers.to_disk_0]
 writer_class = "HyraxAlertsDiskWriter"
-output_location = "./results"
 post_process = "hyrax_alerts.example_functions.example_post_process"
 post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
-[hyrax_alerts.writers.to_slack_0]
-writer_class = "HyraxAlertsSlackWriter"
-slack_token = false # replace with slack bot token
-channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
-max_object_ids = 10
+# A writer can override where its own rejects go instead of nesting under the
+# run directory's rejected/ tree:
+# [hyrax_alerts.writers.to_disk_0.reject_writer]
+# writer_class = "HyraxAlertsDiskWriter"
+# output_location = "./rejected_to_disk_0_custom"
+
+# [hyrax_alerts.writers.to_slack_0]
+# writer_class = "HyraxAlertsSlackWriter"
+# slack_token = false # replace with slack bot token
+# channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
+# max_object_ids = 10
 
 
 ############################################

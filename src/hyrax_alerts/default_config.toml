@@ -4,6 +4,17 @@ data_location = "kafka://localhost:9092/my-topic"
 primary_id_field = "id"
 fields = ["image", "label"]
 
+[hyrax_alerts]
+# If/where records dropped by pre_filter/post_filter are written.
+#   true    -> alongside the alerts that were kept, in this run's output directory:
+#              <general.results_dir>/<timestamp>-hyrax_alerts-<rand>/rejected/<member>/
+#   false   -> don't persist removed records (they are still counted in the logs)
+#   a path  -> <path>/<timestamp>-hyrax_alerts-<rand>/<member>/
+# <member> is "consumer" for pre_filter drops, or a writer's config name for
+# post_filter drops. Individual writers can override this with their own
+# [hyrax_alerts.writers.<name>.reject_writer] table.
+reject_output_root = true
+
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
