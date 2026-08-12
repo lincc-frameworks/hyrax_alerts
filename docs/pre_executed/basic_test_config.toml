@@ -30,10 +30,10 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 # Alerts specific to the Hyrax configuration
 ############################################
 [data_request.infer_stream.data]
-dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
+dataset_class = "hyrax_alerts.consumers.local_testing_consumer.LocalTestingConsumer"
 data_location = "kafka://localhost:9092/my-topic"
 primary_id_field = "id"
-fields = ["image", "label"]
+fields = ["image", "label", "time_series"]
 
 [model]
 name = "HyraxLoopback"
