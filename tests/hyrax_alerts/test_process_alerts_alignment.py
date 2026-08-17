@@ -30,6 +30,35 @@ ALERT_COUNT = 7
 BATCH_SIZE = 3
 
 
+class TestAlertsConsumer(HyraxKafkaConsumer):
+    """A consumer that feeds a fixed number of alerts and then stops.
+
+    This is a subclass of the real consumer so that ``process_alerts`` can be run
+    end-to-end without a real Kafka broker.
+    """
+
+    def __init__(self, config, data_location=None):
+        super().__init__(config=config, data_location=data_location)
+        self._alerts_sent = 0
+
+    def _make_consumer(self):
+        """Return a fake consumer that feeds a fixed number of alerts."""
+        messages = [_make_message(_object_id(i), _payload(i)) for i in range(ALERT_COUNT)]
+        return FakeConsumer(messages, on_exhausted=self.stop)
+
+    def get_object_id(self, msg):
+        """Return the unique object id for the alert, which is unique to that alert."""
+        return msg["object_id"]
+
+    def get_image(self, msg):
+        """Return the payload for the alert, which is unique to that alert."""
+        return msg["image"]
+
+    def get_label(self, msg):
+        """Return the label for the alert, which is unique to that alert."""
+        return msg["label"]
+
+
 def _payload(index):
     """Return the model input for alert ``index``, unique to that alert."""
     # NOTE: both entries vary with the index so that neither a shifted result nor a
@@ -87,7 +116,7 @@ topics = "alignment-test-topic"
 batch_flush_timeout = 0.0
 
 [data_request.infer_stream.data]
-dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
+dataset_class = "test_process_alerts_alignment.TestAlertsConsumer"
 data_location = "kafka://localhost:9092/alignment-test-topic"
 primary_id_field = "object_id"
 fields = ["image"]
@@ -101,6 +130,9 @@ save_model_output = false
 
 [hyrax_alerts.writers.alignment_recorder]
 writer_class = "AlignmentRecordingWriter"
+
+[hyrax_alerts.consumer]
+alert_limit = false
 """
     )
     return config_file
@@ -130,15 +162,6 @@ def _assert_records_aligned(records):
 
 def test_alerts_keep_their_own_results_end_to_end(tmp_path, monkeypatch, recorded_records):
     """Every alert reaches the writer paired with the model output it produced."""
-    messages = [_make_message(_object_id(i), _payload(i)) for i in range(ALERT_COUNT)]
-    # infer_stream builds the consumer internally, so the fake broker is patched onto
-    # the class; `self.stop` ends the stream once the mocked alerts run out.
-    monkeypatch.setattr(
-        HyraxKafkaConsumer,
-        "_make_consumer",
-        lambda self: FakeConsumer(messages, on_exhausted=self.stop),
-    )
-
     process_alerts(config_filepath=str(_write_config(tmp_path)))
 
     assert len(recorded_records) == ALERT_COUNT
