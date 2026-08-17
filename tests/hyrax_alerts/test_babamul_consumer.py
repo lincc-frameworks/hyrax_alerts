@@ -261,6 +261,12 @@ def test_get_photometry_extracts_expected_feature_vector(stats_path):
     np.testing.assert_allclose(photometry[:, 4:], expected_one_hot)
 
 
+def test_babamul_errors_without_stats_path():
+    """Instantiation fails without a features stats file provided."""
+    with pytest.raises(ValueError):
+        _build_photometry_consumer(stats_path=None)
+
+
 def test_get_photometry_first_observation_has_zero_dt_and_dt_prev(stats_path):
     """The first observation is the reference point, so its dt and dt_prev are both 0."""
     consumer = _build_photometry_consumer(stats_path)

@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 from typing import Any, cast
 
 import fastavro
@@ -96,7 +97,11 @@ class BabamulPhotometryConsumer(BabamulConsumer):
         """
         super().__init__(config=config, data_location=data_location)
         stats_path = config["hyrax_alerts"]["consumer"]["BabamulPhotometryConsumer"]["stats_path"]
-        self.stats = np.load(stats_path)
+        stats_path = Path(stats_path)
+        if stats_path.is_file():
+            self.stats = np.load(stats_path)
+        else:
+            raise ValueError(f"provided features stats file '{stats_path}' does not exist.")
 
     def get_photometry(self, msg):
         """Extract photometry data from the incoming message.
