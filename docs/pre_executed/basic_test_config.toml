@@ -19,11 +19,45 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 # writer_class = "HyraxAlertsDiskWriter"
 # output_location = "./rejected_to_disk_0_custom"
 
+# Requires the 'slack' extra: pip install 'hyrax_alerts[slack]'
 # [hyrax_alerts.writers.to_slack_0]
 # writer_class = "HyraxAlertsSlackWriter"
 # slack_token = false # replace with slack bot token
 # channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
 # max_object_ids = 10
+
+# Requires the 'kafka' extra: pip install 'hyrax_alerts[kafka]'
+# Publishes one JSON message per alert, keyed by object_id. Stack more tables
+# like this one to produce to more than one topic.
+# [hyrax_alerts.writers.to_kafka_0]
+# writer_class = "HyraxAlertsKafkaWriter"
+# bootstrap_servers = "localhost:9092"
+# topic = "hyrax-alerts-out"
+# key_field = "object_id"
+# flush_timeout = 30
+
+# Merged into the confluent_kafka.Producer configuration. Anything set here is
+# overridden by the explicit bootstrap_servers key above.
+# [hyrax_alerts.writers.to_kafka_0.producer_config]
+# "security.protocol" = "SASL_SSL"
+# "sasl.mechanism" = "SCRAM-SHA-512"
+# "sasl.username" = "replace-me"
+# "sasl.password" = "replace-me"
+# "compression.type" = "zstd"
+
+# Requires the 'skyportal' extra: pip install 'hyrax_alerts[skyportal]'
+# Posts the model output as an annotation on an *existing* SkyPortal source.
+# Annotations are unique per (object, origin), so re-seeing an object updates its
+# annotation in place; set update_existing = false to keep the first one instead.
+# [hyrax_alerts.writers.to_skyportal_0]
+# writer_class = "HyraxAlertsSkyPortalWriter"
+# base_url = "https://skyportal.example.org"
+# token = false # replace with a SkyPortal API token
+# origin = "hyrax-alerts"
+# group_ids = [1]
+# obj_id_field = "object_id"
+# update_existing = true
+# timeout = 30
 
 
 ############################################

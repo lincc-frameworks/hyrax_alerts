@@ -18,7 +18,6 @@ dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
     "hyrax >= 0.10",
-    "slack_sdk",
     "fastavro >= 1.12.2",
 ]
 
@@ -29,8 +28,25 @@ dependencies = [
 hyrax_alerts = "hyrax_alerts.process_alerts:main"
 process_alerts = "hyrax_alerts.process_alerts:main"
 
-# On a mac, install optional dependencies with `pip install '.[dev]'` (include the single quotes)
+# On a mac, install optional dependencies with `pip install '.[all,dev]'` (include the single quotes)
 [project.optional-dependencies]
+# Each writer that talks to a third party service brings its own client, so that
+# installing hyrax_alerts does not pull in the clients for services you do not
+# use. `all` installs every one of them.
+kafka = [
+    "confluent-kafka", # Required by HyraxAlertsKafkaWriter
+]
+skyportal = [
+    "requests", # Required by HyraxAlertsSkyPortalWriter
+]
+slack = [
+    "slack_sdk", # Required by HyraxAlertsSlackWriter
+]
+all = [
+    "confluent-kafka",
+    "requests",
+    "slack_sdk",
+]
 dev = [
     "jupyter", # Clears output from Jupyter notebooks
     "pre-commit", # Used to run checks before finalizing a git commit
