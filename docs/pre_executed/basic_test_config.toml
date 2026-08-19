@@ -41,9 +41,17 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 # [hyrax_alerts.writers.to_kafka_0.producer_config]
 # "security.protocol" = "SASL_SSL"
 # "sasl.mechanism" = "SCRAM-SHA-512"
+# "compression.type" = "zstd"
+
+# Alternatively, supply credentials via a separate TOML file so that secrets
+# do not appear in the main configuration file.  Keys in the file are merged
+# into the Producer configuration with lower priority than producer_config.
+# [hyrax_alerts.writers.to_kafka_0]
+# credentials_file = "/path/to/kafka_credentials.toml"
+#
+# Example kafka_credentials.toml:
 # "sasl.username" = "replace-me"
 # "sasl.password" = "replace-me"
-# "compression.type" = "zstd"
 
 # Requires the 'skyportal' extra: pip install 'hyrax_alerts[skyportal]'
 # Posts the model output as an annotation on an *existing* SkyPortal source.

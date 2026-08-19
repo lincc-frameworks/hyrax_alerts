@@ -110,6 +110,40 @@ def test_producer_config_passthrough_keys_are_preserved():
     assert writer.producer.config["sasl.mechanism"] == "SCRAM-SHA-512"
 
 
+def test_credentials_file_keys_reach_producer(tmp_path):
+    """Keys from a credentials file are merged into the producer configuration."""
+    creds = tmp_path / "kafka_credentials.toml"
+    creds.write_bytes(b'"sasl.username" = "alice"\n"sasl.password" = "secret"\n')
+
+    writer = HyraxAlertsKafkaWriter(config=_valid_config(credentials_file=str(creds)))
+
+    assert writer.producer.config["sasl.username"] == "alice"
+    assert writer.producer.config["sasl.password"] == "secret"
+
+
+def test_credentials_file_overridden_by_producer_config(tmp_path):
+    """Explicit producer_config keys take precedence over those in credentials_file."""
+    creds = tmp_path / "kafka_credentials.toml"
+    creds.write_bytes(b'"sasl.username" = "from_file"\n')
+
+    writer = HyraxAlertsKafkaWriter(
+        config=_valid_config(
+            credentials_file=str(creds),
+            producer_config={"sasl.username": "from_config"},
+        )
+    )
+
+    assert writer.producer.config["sasl.username"] == "from_config"
+
+
+def test_credentials_file_not_found_raises(tmp_path):
+    """The writer raises a clear error when the credentials_file does not exist."""
+    with pytest.raises(ValueError, match="does not exist"):
+        HyraxAlertsKafkaWriter(
+            config=_valid_config(credentials_file=str(tmp_path / "missing.toml"))
+        )
+
+
 def test_write_produces_one_message_per_record():
     """Each record in the batch becomes its own message on the configured topic."""
     writer = HyraxAlertsKafkaWriter(config=_valid_config())

@@ -1,3 +1,6 @@
+import tomllib
+from pathlib import Path
+
 from hyrax_alerts.logging_utils import get_logger
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 from hyrax_alerts.writers.serialization_utils import json_dumps
@@ -134,11 +137,16 @@ class HyraxAlertsKafkaWriter(HyraxAlertsBaseWriter):
 
     Optional configuration keys:
 
+    - ``credentials_file``: path to a TOML file whose keys are merged into the
+      ``confluent_kafka.Producer`` configuration. Intended for credentials that
+      should not appear in the main config file, such as ``sasl.username`` and
+      ``sasl.password``. Values loaded from the file are overridden by any
+      matching key in ``producer_config``, and ``bootstrap.servers`` is always
+      overridden by the top-level ``bootstrap_servers`` key.
     - ``producer_config``: a table merged into the ``confluent_kafka.Producer``
       configuration, for keys such as ``security.protocol``, ``sasl.mechanism``,
-      ``sasl.username``, ``sasl.password``, ``ssl.ca.location``, and
-      ``compression.type``. A ``bootstrap.servers`` set here is overridden by
-      the top level ``bootstrap_servers`` key.
+      ``ssl.ca.location``, and ``compression.type``. A ``bootstrap.servers`` set
+      here is overridden by the top level ``bootstrap_servers`` key.
     - ``key_field``: which record field supplies the message key
       (default ``"object_id"``). Records without that field are produced with
       no key.
@@ -173,10 +181,27 @@ class HyraxAlertsKafkaWriter(HyraxAlertsBaseWriter):
         self.key_field = config.get("key_field", DEFAULT_KEY_FIELD)
         self.flush_timeout = config.get("flush_timeout", DEFAULT_FLUSH_TIMEOUT_SECONDS)
 
+        # Load credentials from an external TOML file when provided.  This
+        # keeps secrets out of the main config file.  Keys in the file are
+        # overridden by producer_config and then by the explicit
+        # bootstrap_servers key, so the priority order is:
+        #   credentials_file < producer_config < bootstrap_servers
+        credentials: dict = {}
+        credentials_file = config.get("credentials_file")
+        if credentials_file:
+            credentials_path = Path(credentials_file)
+            if not credentials_path.exists():
+                raise ValueError(
+                    f"HyraxAlertsKafkaWriter: credentials_file '{credentials_file}' does not exist."
+                )
+            with open(credentials_path, "rb") as f:
+                credentials = tomllib.load(f)
+
         # Passthrough first, explicit key second: 'bootstrap_servers' is a
         # required, documented key, so it wins over a 'bootstrap.servers' buried
         # in producer_config.
         producer_config = {
+            **credentials,
             **config.get("producer_config", {}),
             "bootstrap.servers": self.bootstrap_servers,
         }
@@ -235,8 +260,10 @@ class HyraxAlertsKafkaWriter(HyraxAlertsBaseWriter):
         self.producer.poll(DEFAULT_BUFFER_FULL_POLL_SECONDS)
         try:
             self.producer.produce(self.topic, key=key, value=value, on_delivery=_delivery_report)
-        except Exception as error:
+        except BufferError as error:
             logger.error(f"Dropping alert {key!r}; Kafka produce queue is still full: {error}")
+        except Exception as error:
+            logger.error(f"Dropping alert {key!r}; failed to produce after queue drain: {error}")
 
     def __enter__(self):
         """Enter the context manager for the writer."""
