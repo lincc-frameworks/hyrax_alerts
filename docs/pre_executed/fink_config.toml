@@ -1,0 +1,64 @@
+#############################
+# Hyrax-alerts configurations
+#############################
+#
+# Example config for consuming Fink's LSST livestream.
+#
+# Fink issues credentials per user at registration (https://fink-broker.org), and the
+# bootstrap servers come with them -- there is no public endpoint to hardcode here.
+# Fill in `bootstrap_servers` below and point `credentials_file` at a TOML file holding
+# your SASL settings, for example:
+#
+#   # ~/.fink_kafka_credentials.toml
+#   "security.protocol" = "SASL_PLAINTEXT"
+#   "sasl.mechanism"    = "SCRAM-SHA-512"
+#   "sasl.username"     = "<YOUR_USERNAME>"
+#   "sasl.password"     = "<YOUR_PASSWORD>"
+#
+# Keep credentials in that file rather than in `consumer_options`, which is not meant to
+# hold secrets.
+
+[hyrax_alerts.consumer]
+pre_process = "hyrax_alerts.example_functions.example_pre_process"
+pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+# Stop after this many alerts. Useful for a first connection test; false means no limit.
+alert_limit = 1
+
+[hyrax_alerts.consumer.FinkConsumer]
+# Fink normally ships the Avro writer schema as JSON in the Kafka message key, so no
+# schema file is needed. Older streams put a bare version string there instead; point
+# this at a matching .avsc to decode those.
+schema_path = false
+
+[hyrax_alerts.writers.to_disk_0]
+writer_class = "HyraxAlertsDiskWriter"
+
+
+############################################
+# Alerts specific to the Hyrax configuration
+############################################
+[data_set.KafkaStreamDataset]
+# One Fink filter is one topic. Available topics are listed at
+# https://lsst.fink-portal.org/schemas
+topics = ["fink_sn_near_galaxy_candidate_lsst"]
+bootstrap_servers = "<HOST>:<PORT>"        # from your Fink registration
+group_id = "<YOUR_GROUP_ID>"               # from your Fink registration
+credentials_file = "~/.fink_kafka_credentials.toml"
+auto_offset_reset = "earliest"
+
+[data_request.infer_stream.data]
+# Consumers are not in hyrax's DATASET_REGISTRY, so this must be a full dotted path
+# rather than a bare class name.
+dataset_class = "hyrax_alerts.consumers.fink_consumer.FinkLsstConsumer"
+primary_id_field = "dia_source_id"
+fields = ["psf_flux", "psf_flux_err", "snr", "ra", "dec", "mjd"]
+
+[model]
+# Replace with your own model. Note that a model's `prepare_inputs` has to pull the
+# fields named above out of the batch -- the built-in HyraxLoopback only knows the
+# field names "image" and "label".
+name = "<YOUR_MODEL>"
+
+[infer_stream]
+model_weights_file = "<PATH_TO_WEIGHTS>"
+save_model_output = true
