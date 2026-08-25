@@ -1,0 +1,32 @@
+{# One line per alert, showing the model's output alongside the object id.    #}
+{#                                                                            #}
+{# Available variables:                                                       #}
+{#   records         one dict per alert, exactly as write() receives them     #}
+{#   count           len(records)                                             #}
+{#   object_ids      the object_id of every record that has one               #}
+{#   max_object_ids  the configured truncation budget                         #}
+{#                                                                            #}
+{# Model output lives under the `__hyrax_result` key, which reads most        #}
+{# clearly with subscript syntax. Its inner keys depend on your model: a      #}
+{# model returning a single value puts it under "data", while one returning   #}
+{# a dict keeps its own field names. A field that does not exist renders as   #}
+{# empty rather than failing, so it is safe to reference one that only some   #}
+{# batches carry.                                                             #}
+{#                                                                            #}
+{# Numpy already prints a single number compactly, so no filter is needed     #}
+{# below. If your model returns an array, add the `py` filter to keep it on   #}
+{# one line - `{{ value | py }}` - and use `round` to trim the digits:        #}
+{#   {{ record["__hyrax_result"]["data"] | round(3) }}                        #}
+{#                                                                            #}
+{# Rendering nothing at all - as this template does for an empty batch -      #}
+{# tells the writer to skip posting entirely.                                 #}
+{% set limit = max_object_ids | default(10) %}
+{% if count > 0 %}
+:satellite_antenna: *{{ count }}* alert{{ "" if count == 1 else "s" }}
+{% for record in records[:limit] %}
+• `{{ record.object_id }}` — {{ record["__hyrax_result"]["data"] }}
+{% endfor %}
+{% if count > limit %}
+_…and {{ count - limit }} more_
+{% endif %}
+{% endif %}
