@@ -17,7 +17,8 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
-    "hyrax >= 0.10",
+    "hyrax >= 0.11",
+    "slack_sdk",
     "fastavro >= 1.12.2",
 ]
 
@@ -58,7 +59,7 @@ dev = [
 [build-system]
 requires = [
     "setuptools_scm>=10.2.1", # Gets release version from git. Makes it available programmatically
-    "setuptools>=83.0.0", # Used to build and package the Python project
+    "setuptools>=84.0.0", # Used to build and package the Python project
 ]
 build-backend = "setuptools.build_meta"
 
