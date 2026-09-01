@@ -1,6 +1,4 @@
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-
+from hyrax_alerts.logging_utils import get_logger
 from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 
 # NOTE: This writer posts a short, human-readable summary of each batch to a Slack
@@ -8,10 +6,41 @@ from hyrax_alerts.writers.base_writer import HyraxAlertsBaseWriter
 # Slack is a notification surface, not a results store. Use the disk writer (or a
 # future database writer) for durable, complete output.
 
+# NOTE: The slack_sdk import is deferred into _load_client_class so that
+# hyrax_alerts.writers can import this module - and therefore register this
+# writer - without the `slack` extra installed.
+
+logger = get_logger(__name__)
+
 # Default number of object ids to enumerate in a summary message before
 # truncating with a "(+N more)" suffix. Keeps messages readable and well under
 # Slack's message size limits.
 DEFAULT_MAX_OBJECT_IDS = 10
+
+SLACK_IMPORT_ERROR = (
+    "HyraxAlertsSlackWriter requires slack_sdk. Install it with: pip install 'hyrax_alerts[slack]'"
+)
+
+
+def _load_client_class():
+    """Import and return ``slack_sdk.WebClient``.
+
+    Returns
+    -------
+    type
+        The ``slack_sdk.WebClient`` class.
+
+    Raises
+    ------
+    ImportError
+        If slack_sdk is not installed, with a message naming the extra that
+        provides it.
+    """
+    try:
+        from slack_sdk import WebClient
+    except ImportError as error:
+        raise ImportError(SLACK_IMPORT_ERROR) from error
+    return WebClient
 
 
 def _format_batch_summary(result_batch: list[dict], max_object_ids: int = DEFAULT_MAX_OBJECT_IDS) -> str:
@@ -51,6 +80,8 @@ def _format_batch_summary(result_batch: list[dict], max_object_ids: int = DEFAUL
 class HyraxAlertsSlackWriter(HyraxAlertsBaseWriter):
     """Writer class for posting a per-batch summary to a Slack channel.
 
+    Requires the ``slack`` extra: ``pip install 'hyrax_alerts[slack]'``.
+
     Required configuration keys:
 
     - ``slack_token``: a Slack bot token (``xoxb-...``).
@@ -85,7 +116,8 @@ class HyraxAlertsSlackWriter(HyraxAlertsBaseWriter):
 
         self.max_object_ids = config.get("max_object_ids", DEFAULT_MAX_OBJECT_IDS)
 
-        self.client = WebClient(token=self.slack_token)
+        client_class = _load_client_class()
+        self.client = client_class(token=self.slack_token)
 
     def write(self, result_batch: list[dict]):
         """Post a summary of a batch of results to the configured Slack channel."""
@@ -93,10 +125,13 @@ class HyraxAlertsSlackWriter(HyraxAlertsBaseWriter):
 
         try:
             self.client.chat_postMessage(channel=self.channel, text=summary)
-        except SlackApiError as error:
-            # A failure to notify should not abort the whole processing run.
-            # TODO: Log the Slack API error instead of printing once logging is available.
-            print(f"Warning: failed to post Hyrax alerts summary to Slack: {error}")
+        except Exception as error:
+            # A failure to notify should not abort the whole processing run, and
+            # write_batch turns any writer exception into one that does - so this
+            # deliberately catches more than just SlackApiError. A DNS failure or
+            # a connection reset is just as much "we could not notify" as an API
+            # error is.
+            logger.error(f"Failed to post Hyrax alerts summary to Slack: {error}")
 
     def __enter__(self):
         """Enter the context manager for the writer."""

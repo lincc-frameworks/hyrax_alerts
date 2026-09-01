@@ -1,8 +1,14 @@
 from unittest.mock import MagicMock
 
 import pytest
+from hyrax_alerts.writers import slack_writer
 from hyrax_alerts.writers.slack_writer import HyraxAlertsSlackWriter, _format_batch_summary
-from slack_sdk.errors import SlackApiError
+
+
+@pytest.fixture(autouse=True)
+def fake_slack_client_class(monkeypatch):
+    """Build writers against a mock client, so slack_sdk is never needed."""
+    monkeypatch.setattr(slack_writer, "_load_client_class", lambda: MagicMock)
 
 
 def _valid_config(**overrides):
@@ -76,11 +82,21 @@ def test_write_posts_message_to_configured_channel():
     assert "2 alerts" in kwargs["text"]
 
 
-def test_write_swallows_slack_api_error():
-    """A SlackApiError from the client does not propagate out of write()."""
+def test_write_swallows_client_errors():
+    """An error from the Slack client does not propagate out of write()."""
     writer = HyraxAlertsSlackWriter(config=_valid_config())
     writer.client = MagicMock()
-    writer.client.chat_postMessage.side_effect = SlackApiError("boom", response={})
+    writer.client.chat_postMessage.side_effect = RuntimeError("boom")
+
+    # Should not raise.
+    writer.write(_records([101]))
+
+
+def test_write_swallows_connection_errors():
+    """A transport failure is swallowed too, not just Slack API errors."""
+    writer = HyraxAlertsSlackWriter(config=_valid_config())
+    writer.client = MagicMock()
+    writer.client.chat_postMessage.side_effect = ConnectionError("dns failure")
 
     # Should not raise.
     writer.write(_records([101]))
