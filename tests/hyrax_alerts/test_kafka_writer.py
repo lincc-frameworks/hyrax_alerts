@@ -144,6 +144,15 @@ def test_credentials_file_not_found_raises(tmp_path):
         )
 
 
+def test_credentials_file_must_be_a_regular_file(tmp_path):
+    """The writer rejects directories and other non-file paths to credentials_file."""
+    bad_path = tmp_path / "credentials_dir"
+    bad_path.mkdir()
+
+    with pytest.raises(ValueError, match="not a regular file"):
+        HyraxAlertsKafkaWriter(config=_valid_config(credentials_file=str(bad_path)))
+
+
 def test_write_produces_one_message_per_record():
     """Each record in the batch becomes its own message on the configured topic."""
     writer = HyraxAlertsKafkaWriter(config=_valid_config())

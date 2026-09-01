@@ -190,9 +190,10 @@ class HyraxAlertsKafkaWriter(HyraxAlertsBaseWriter):
         credentials_file = config.get("credentials_file")
         if credentials_file:
             credentials_path = Path(credentials_file)
-            if not credentials_path.exists():
+            if not credentials_path.is_file():
                 raise ValueError(
-                    f"HyraxAlertsKafkaWriter: credentials_file '{credentials_file}' does not exist."
+                    "HyraxAlertsKafkaWriter: credentials_file "
+                    f"'{credentials_file}' does not exist or is not a regular file."
                 )
             with open(credentials_path, "rb") as f:
                 credentials = tomllib.load(f)
