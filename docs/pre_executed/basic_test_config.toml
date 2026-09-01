@@ -24,6 +24,13 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 # slack_token = false # replace with slack bot token
 # channel = "#hyrax-alerts-test"  # DiRAC workspace slack channel
 # max_object_ids = 10
+#
+# To customize the message, point message_template at a Jinja file. This can be
+# the bare name of one bundled in hyrax_alerts/message_templates/, or a path to
+# your own file - copy default.jinja as a starting point. Omit the key entirely
+# to get the writer's built-in summary.
+# message_template = "detailed.jinja"
+# message_template = "./my_templates/nightly_summary.jinja"
 
 
 ############################################

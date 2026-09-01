@@ -20,6 +20,7 @@ dependencies = [
     "hyrax >= 0.11",
     "slack_sdk",
     "fastavro >= 1.12.2",
+    "jinja2 >= 3.1", # Renders the user-supplied message templates in writers
 ]
 
 [project.urls]
