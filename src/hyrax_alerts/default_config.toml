@@ -34,3 +34,6 @@ stats_path = "./feature_stats_day100.npz"
 
 # how to encode the band information (can also be embed for a float version of the index)
 band_mode = "onehot"
+
+[hyrax_alerts.consumer.TempoPhotometryConsumer]
+feature_set = "basic"
