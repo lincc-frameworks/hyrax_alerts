@@ -1,0 +1,66 @@
+#############################
+# Hyrax-alerts configurations
+#############################
+#
+# Example config for consuming an ALeRCE classifier output stream.
+#
+# ALeRCE issues credentials on request (alerce.broker@gmail.com) and assigns a group id
+# prefix that your `group_id` must start with. Point `credentials_file` at a TOML file
+# holding your SASL settings, for example:
+#
+#   # ~/.alerce_kafka_credentials.toml
+#   "security.protocol" = "SASL_PLAINTEXT"
+#   "sasl.mechanism"    = "SCRAM-SHA-256"
+#   "sasl.username"     = "<YOUR_USERNAME>"
+#   "sasl.password"     = "<YOUR_PASSWORD>"
+#
+# Keep credentials in that file rather than in `consumer_options`, which is not meant to
+# hold secrets.
+#
+# NOTE: ALeRCE's documented output streams carry ZTF alerts. Their LSST output stream is
+# not published yet, so confirm the topic name and payload with the ALeRCE team before
+# relying on this for LSST.
+
+[hyrax_alerts.consumer]
+pre_process = "hyrax_alerts.example_functions.example_pre_process"
+pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+# Stop after this many alerts. Useful for a first connection test; false means no limit.
+alert_limit = 1
+
+[hyrax_alerts.consumer.AlerceConsumer]
+# Field carrying the alert's primary identifier on this stream.
+id_field = "candid"
+
+[hyrax_alerts.writers.to_disk_0]
+writer_class = "HyraxAlertsDiskWriter"
+
+
+############################################
+# Alerts specific to the Hyrax configuration
+############################################
+[data_set.KafkaStreamDataset]
+# ALeRCE topics are date-suffixed and rotate nightly (stamp_classifier_20260820), with a
+# 48 hour retention. Rather than editing this every night, give librdkafka a regex --
+# a leading "^" makes it a pattern, and new matching topics are discovered automatically.
+topics = ["^stamp_classifier_[0-9]{8}"]
+bootstrap_servers = "kafka.alerce.science:9093"
+group_id = "<YOUR_ASSIGNED_PREFIX>_hyrax"   # must start with the prefix ALeRCE assigns
+credentials_file = "~/.alerce_kafka_credentials.toml"
+auto_offset_reset = "earliest"
+
+[data_request.infer_stream.data]
+# Consumers are not in hyrax's DATASET_REGISTRY, so this must be a full dotted path
+# rather than a bare class name.
+dataset_class = "hyrax_alerts.consumers.alerce_consumer.AlerceStampClassifierConsumer"
+primary_id_field = "candid"
+fields = ["sn_prob", "agn_prob", "vs_prob", "asteroid_prob", "bogus_prob"]
+
+[model]
+# Replace with your own model. Note that a model's `prepare_inputs` has to pull the
+# fields named above out of the batch -- the built-in HyraxLoopback only knows the
+# field names "image" and "label".
+name = "<YOUR_MODEL>"
+
+[infer_stream]
+model_weights_file = "<PATH_TO_WEIGHTS>"
+save_model_output = true
