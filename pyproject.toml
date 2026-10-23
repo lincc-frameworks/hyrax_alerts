@@ -17,7 +17,7 @@ classifiers = [
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
-    "hyrax >= 0.12",
+    "hyrax",
     "slack_sdk",
     "fastavro >= 1.12.2",
 ]
