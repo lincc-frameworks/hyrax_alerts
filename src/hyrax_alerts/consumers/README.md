@@ -1,7 +1,8 @@
 # Consumers
 
 A consumer reads alerts from a Kafka topic and decodes them. It then applies your `pre_filter` and
-`pre_process` hooks and passes the remaining alerts to the model. You choose a consumer with `dataset_class`:
+`pre_process` hooks and passes the remaining alerts as a list of dictionaries to the model.
+You choose a consumer with `dataset_class`:
 
 ```toml
 [data_request.infer_stream.data]
@@ -20,8 +21,8 @@ fields = ["<key_1>", "<key_2>"]                   # a list of one or more alert 
 
 ## Built-in consumers
 
-Every consumer returns alerts in batches. A batch is a list of dictionaries, and each dictionary is one
-alert. You can set the batch size with the `data_loader.batch_size` config parameter. If not enough alerts
+Every consumer returns alerts in batches. A batch is a list of alerts where each alert has been converted to a dictionary.
+You can set the batch size with the `data_loader.batch_size` config parameter. If not enough alerts
 arrive to fill a batch before a timeout passes, the consumer returns a partial batch, so a quiet stream
 still gets processed.
 
@@ -68,17 +69,17 @@ These settings apply whichever consumer you choose:
 [hyrax_alerts.consumer]
 pre_filter = "my_hooks.keep_well_sampled"   # remove alerts before the model runs
 pre_process = "my_hooks.add_features"       # transform alerts before the model runs
-alert_limit = false                         # process at most this many alerts, then stop; false means no limit
+alert_limit = false                         # max number of alerts to process; false or 0 means no limit
 ```
 
-Each hook is the dotted path of a function that takes `(self, batch)` and returns a batch. Here, `batch` is a
-list of decoded alerts as dicts, and `self` is the consumer. A `pre_filter` should return the alerts it
+Each hook is the dotted path of a function that takes `(self, batch)` and returns a batch as a list of dictionaries.
+Here, `batch` is a list of decoded alerts as dicts, and `self` is the consumer. A `pre_filter` should return the alerts it
 keeps without copying them, because hyrax-alerts compares the returned dicts with the originals to see which
 alerts were removed:
 
 ```python
 # my_hooks.py
-def keep_well_sampled(self, batch):
+def keep_well_sampled(self, batch: list[dict]) -> list[dict]:
     """Keep alerts with at least 3 photometry points."""
     return [alert for alert in batch if len(alert["fp_hists"]) >= 3]
 ```
@@ -88,8 +89,10 @@ Alerts removed by `pre_filter` are saved in `rejected/consumer/` in the run's ou
 
 By default, both hooks are example functions that pass every alert through and print one line per batch.
 
-`alert_limit` never splits a batch. If the next batch would take the total past the limit, the run stops
-without processing that batch.
+`alert_limit` is primarily used for testing. Set it to ``False`` for normal operation.
+It limits the total number of alerts processed before the program exits.
+`alert_limit` will never split a batch. If the next batch would increase the total number
+of processed alerts past `alert_limit`, the run stops without processing that batch.
 
 ## Adding a new Kafka source
 

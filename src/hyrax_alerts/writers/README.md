@@ -6,7 +6,7 @@ several of the same class with different filters. Each `[hyrax_alerts.writers.<n
 adds one writer:
 
 ```toml
-[hyrax_alerts.writers.to_disk]
+[hyrax_alerts.writers.to_disk]  # ``to_disk`` is the user defined "friendly name".
 writer_class = "HyraxAlertsDiskWriter"
 
 [hyrax_alerts.writers.to_slack]
@@ -15,17 +15,19 @@ slack_token = "xoxb-..."
 channel = "#hyrax-alerts"
 ```
 
-You choose each writer's `<name>`, which is also the name of its output folder. Writers run in parallel,
+You choose each writer's `<friendly_name>` in the config. Writers run in parallel,
 and each one gets its own copy of the alerts, so one writer's hooks can't affect another writer.
+For writers that write to disk, the `<friendly_name>` also determines the default
+subdirectory where the output is saved.
 
 ## What a writer receives
 
-Each batch is a list of alerts. Each alert is a dict containing its input data and the model's output:
+Each batch is a list of alerts. Each alert is a dictionary containing its input data and the model's output:
 
 ```python
 {
     "object_id": "...",                           # from primary_id_field
-    "data": {"<field>": <value>, ...},            # the fields passed to the model
+    "data": {"<field>": <value>, ...},            # the original data passed to the model
     "__hyrax_result": {"data": <model output>},   # or one key per output, if the model returns a dict
 }
 ```
@@ -41,13 +43,15 @@ Values are usually numpy scalars or arrays.
 | `post_filter`   | Dotted path of a function that removes alerts. It runs after `post_process`.                               |
 | `reject_writer` | A table that changes where this writer's rejected alerts go ([see below](#output-and-rejected-alerts))     |
 
-Each hook takes `(self, batch)` and returns a batch, where `self` is the writer. A `post_filter` should
-return the alerts it keeps without copying them, because hyrax-alerts compares the returned dicts with the
-originals to see which alerts were removed:
+Each hook signature is `(self, batch)` and returns a batch, where `self` is the writer.
+The input and returned batches are always lists of dictionaries.
+
+NOTE: A `post_filter` should return the alerts it keeps without copying them, because
+hyrax-alerts compares the returned dicts with the originals to see which alerts were removed:
 
 ```python
 # my_hooks.py
-def high_score_only(self, batch):
+def high_score_only(self, batch: list[dict]) -> list[dict]:
     return [alert for alert in batch if alert["__hyrax_result"]["data"] > 0.9]
 ```
 
@@ -88,7 +92,8 @@ disk writer if you need complete results.
 | `max_object_ids` | `10`     | How many object ids to list in a message before `(+N more)` |
 
 The writer posts once per batch. A batch where every alert was filtered out still gets a post, which says
-*"received a batch with no objects"*. If a post fails, the writer prints a warning and the run continues.
+*"received a batch with no objects"*. Slack API errors print a warning and let the run continue;
+other posting errors stop the run.
 
 To get a token, [create a Slack app](https://api.slack.com/apps) and give it the `chat:write` bot scope.
 Install the app to your workspace, then invite the bot to your channel. The token is stored in your config
