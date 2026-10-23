@@ -91,3 +91,94 @@ def test_writer_registered_in_registry():
     from hyrax_alerts.writers.base_writer import WRITER_REGISTRY
 
     assert WRITER_REGISTRY.get("HyraxAlertsSlackWriter") is HyraxAlertsSlackWriter
+
+
+def _template_file(tmp_path, source):
+    """Write a Jinja template into tmp_path and return its path as a string."""
+    path = tmp_path / "custom.jinja"
+    path.write_text(source)
+    return str(path)
+
+
+def _posted_text(writer, records):
+    """Write `records` through `writer` and return the text posted to Slack."""
+    writer.write(records)
+    return writer.client.chat_postMessage.call_args.kwargs["text"]
+
+
+def _writer_with(**overrides):
+    """Build a Slack writer with a mocked client."""
+    writer = HyraxAlertsSlackWriter(config=_valid_config(**overrides))
+    writer.client = MagicMock()
+    return writer
+
+
+def test_custom_template_file_controls_the_message(tmp_path):
+    """A template file on disk supplies the posted text."""
+    template = _template_file(tmp_path, "{{ count }} found: {{ object_ids | join('/') }}")
+    writer = _writer_with(message_template=template)
+
+    assert _posted_text(writer, _records([101, 102])) == "2 found: 101/102"
+
+
+def test_bundled_template_resolves_by_name():
+    """A bare bundled template name resolves without any path."""
+    writer = _writer_with(message_template="detailed.jinja")
+
+    text = _posted_text(writer, _records([101, 102]))
+
+    assert "*2* alerts" in text
+    assert "`101`" in text
+
+
+def test_no_template_configured_uses_builtin_summary():
+    """Without message_template the writer posts its built-in summary, unchanged."""
+    writer = _writer_with()
+    records = _records([101, 102])
+
+    assert _posted_text(writer, records) == _format_batch_summary(records, max_object_ids=10)
+
+
+def test_template_honors_max_object_ids(tmp_path):
+    """max_object_ids is exposed to the template."""
+    template = _template_file(tmp_path, "limit={{ max_object_ids }}")
+    writer = _writer_with(message_template=template, max_object_ids=3)
+
+    assert _posted_text(writer, _records([101])) == "limit=3"
+
+
+def test_missing_template_raises_at_construction():
+    """A template that cannot be found fails at startup, not on the first batch."""
+    with pytest.raises(ValueError, match="does-not-exist.jinja"):
+        HyraxAlertsSlackWriter(config=_valid_config(message_template="does-not-exist.jinja"))
+
+
+def test_invalid_template_raises_at_construction(tmp_path):
+    """A syntax error fails at startup, not on the first batch."""
+    template = _template_file(tmp_path, "{% for x in %}")
+
+    with pytest.raises(ValueError, match="custom.jinja"):
+        HyraxAlertsSlackWriter(config=_valid_config(message_template=template))
+
+
+def test_render_failure_falls_back_to_builtin_summary(tmp_path, caplog):
+    """A template that blows up at render time degrades to the default summary."""
+    template = _template_file(tmp_path, "{{ 1 / 0 }}")
+    writer = _writer_with(message_template=template)
+    records = _records([101])
+
+    with caplog.at_level("WARNING"):
+        text = _posted_text(writer, records)
+
+    assert text == _format_batch_summary(records, max_object_ids=10)
+    assert "Failed to render Slack message template" in caplog.text
+
+
+def test_blank_render_skips_posting(tmp_path):
+    """A template that renders nothing suppresses the message entirely."""
+    template = _template_file(tmp_path, "{% if count > 0 %}{{ count }} alerts{% endif %}")
+    writer = _writer_with(message_template=template)
+
+    writer.write([])
+
+    writer.client.chat_postMessage.assert_not_called()

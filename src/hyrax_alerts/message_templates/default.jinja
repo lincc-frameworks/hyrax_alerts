@@ -1,0 +1,21 @@
+{# Reproduces the writer's built-in summary. Copy this file, point            #}
+{# `message_template` at your copy, and edit from here.                       #}
+{#                                                                            #}
+{# Available variables:                                                       #}
+{#   records         one dict per alert, exactly as write() receives them     #}
+{#   count           len(records)                                             #}
+{#   object_ids      the object_id of every record that has one               #}
+{#   max_object_ids  the configured truncation budget                         #}
+{#                                                                            #}
+{# Note this template counts `object_ids` rather than `count`, matching the   #}
+{# built-in summary: a record with no object_id is not mentioned, so it is    #}
+{# not counted either.                                                        #}
+{% set limit = max_object_ids | default(10) %}
+{% set total = object_ids | length %}
+{% set shown = object_ids[:limit] %}
+{% set remaining = total - (shown | length) %}
+{% if total == 0 %}
+:satellite_antenna: Hyrax alerts: received a batch with no objects.
+{% else %}
+:satellite_antenna: Hyrax alerts: {{ total }} {{ "alert" if total == 1 else "alerts" }} - objects: {{ shown | join(", ") }}{% if remaining > 0 %}, ... (+{{ remaining }} more){% endif %}
+{% endif %}
