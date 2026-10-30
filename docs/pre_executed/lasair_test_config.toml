@@ -2,7 +2,7 @@
 # Hyrax-alerts configurations
 #############################
 [hyrax_alerts.consumer]
-pre_process = "hyrax_alerts.example_functions.example_pre_process"
+pre_process = "hyrax_alerts.lasair_preprocess.lasair_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
 
 # With no output_location, this writer writes to ./results/<run_dir>/to_disk_0/.
@@ -19,10 +19,10 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 # Alerts specific to the Hyrax configuration
 ############################################
 [data_request.infer_stream.data]
-dataset_class = "hyrax_alerts.consumers.local_testing_consumer.LocalTestingConsumer"
-data_location = "kafka://lasair-lsst-kafka.lsst_pub.ac.uk:9092/lasair_201DrewsGaiaDDFStars/group_1"
-primary_id_field = "objects.diaObjectId"
-fields = ["image", "label", "time_series"]
+dataset_class = "hyrax_alerts.consumers.lasair_lite_lc_consumer.LasairLiteConsumer"
+data_location = "kafka://lasair-lsst-kafka.lsst.ac.uk:9092/lasair_201DrewsLSSTvariables/group_0"
+primary_id_field = "diaObjectId"
+fields = ["ra", "decl", "psfFlux", "psfFluxErr"]
 
 [model]
 name = "HyraxLoopback"
