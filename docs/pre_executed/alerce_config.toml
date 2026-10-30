@@ -59,8 +59,8 @@ fields = ["sn_prob", "agn_prob", "vs_prob", "asteroid_prob", "bogus_prob"]
 # Replace with your own model. Note that a model's `prepare_inputs` has to pull the
 # fields named above out of the batch -- the built-in HyraxLoopback only knows the
 # field names "image" and "label".
-name = "<YOUR_MODEL>"
+name = "HyraxLoopback"
 
 [infer_stream]
-model_weights_file = "<PATH_TO_WEIGHTS>"
+model_weights_file = "./foo.bar"
 save_model_output = true
