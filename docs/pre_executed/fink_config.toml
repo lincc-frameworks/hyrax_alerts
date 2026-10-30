@@ -21,8 +21,6 @@
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
-# Stop after this many alerts. Useful for a first connection test; false means no limit.
-alert_limit = 1
 
 [hyrax_alerts.consumer.FinkConsumer]
 # Fink normally ships the Avro writer schema as JSON in the Kafka message key, so no
@@ -38,27 +36,20 @@ writer_class = "HyraxAlertsDiskWriter"
 # Alerts specific to the Hyrax configuration
 ############################################
 [data_set.KafkaStreamDataset]
-# One Fink filter is one topic. Available topics are listed at
-# https://lsst.fink-portal.org/schemas
-topics = ["fink_sn_near_galaxy_candidate_lsst"]
-bootstrap_servers = "<HOST>:<PORT>"        # from your Fink registration
-group_id = "<YOUR_GROUP_ID>"               # from your Fink registration
 credentials_file = "~/.fink_kafka_credentials.toml"
 auto_offset_reset = "earliest"
 
 [data_request.infer_stream.data]
-# Consumers are not in hyrax's DATASET_REGISTRY, so this must be a full dotted path
-# rather than a bare class name.
 dataset_class = "hyrax_alerts.consumers.fink_consumer.FinkLsstConsumer"
+# Other topics listed here: https://lsst.fink-portal.org/schemas
+data_location = "kafka://personal_host:9092/fink_uniform_sample_lsst/group_id"
 primary_id_field = "dia_source_id"
+# LSST and Fink schemas defined here: https://lsst.fink-portal.org/schemas
 fields = ["psf_flux", "psf_flux_err", "snr", "ra", "dec", "mjd"]
 
 [model]
-# Replace with your own model. Note that a model's `prepare_inputs` has to pull the
-# fields named above out of the batch -- the built-in HyraxLoopback only knows the
-# field names "image" and "label".
-name = "<YOUR_MODEL>"
+name = "HyraxLoopback"
 
 [infer_stream]
-model_weights_file = "<PATH_TO_WEIGHTS>"
+model_weights_file = "./foo.bar"
 save_model_output = true
