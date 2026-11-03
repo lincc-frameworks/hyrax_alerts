@@ -42,7 +42,8 @@ auto_offset_reset = "earliest"
 [data_request.infer_stream.data]
 dataset_class = "hyrax_alerts.consumers.fink_consumer.FinkLsstConsumer"
 # Other topics listed here: https://lsst.fink-portal.org/schemas
-data_location = "kafka://kafka-lsst.fink-broker.org:24499/fink_uniform_sample_lsst/hyrax_alert_test"
+# Group_id is specified in `./fink_kafka_credentials.toml`
+data_location = "kafka://kafka-lsst.fink-broker.org:24499/fink_uniform_sample_lsst"
 primary_id_field = "dia_source_id"
 # LSST and Fink schemas defined here: https://lsst.fink-portal.org/schemas
 fields = ["psf_flux", "psf_flux_err", "snr", "ra", "dec", "mjd"]
