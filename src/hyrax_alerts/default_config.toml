@@ -31,3 +31,23 @@ raw_alert = false
 [hyrax_alerts.consumer.BabamulPhotometryConsumer]
 # path to the precomputerd feature statistics (used for training)
 stats_path = "./feature_stats_day100.npz"
+
+[hyrax_alerts.consumer.FinkConsumer]
+# Fink carries the Avro writer schema as JSON in the Kafka message key, so no schema
+# file is normally needed. Older Fink streams put a bare version string there instead;
+# point this at a matching .avsc to decode those. false means "no fallback".
+schema_path = false
+
+[hyrax_alerts.consumer.AlerceConsumer]
+# Field carrying the alert's primary identifier. "candid" for ALeRCE's ZTF-era topics.
+id_field = "candid"
+
+# Note on ALeRCE topics: they are date-suffixed and rotate nightly
+# (lc_classifier_20260820), retained for 48 hours. Rather than editing the config each
+# night, give [data_set.KafkaStreamDataset].topics a regex -- librdkafka treats a leading
+# "^" as a pattern and picks up new matching topics on its own:
+#   topics = ["^lc_classifier_[0-9]{8}"]
+#
+# Note on broker credentials for both Fink and ALeRCE: SASL settings belong in the
+# [data_set.KafkaStreamDataset].credentials_file TOML (Fink uses SCRAM-SHA-512, ALeRCE
+# uses SCRAM-SHA-256), never in consumer_options, which is not meant to hold secrets.
