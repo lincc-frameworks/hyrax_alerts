@@ -1,8 +1,8 @@
-[data_request.infer_stream.data]
-dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
-data_location = "kafka://localhost:9092/my-topic"
-primary_id_field = "id"
-fields = ["image", "label"]
+# [data_request.infer_stream.data]
+# dataset_class = "hyrax_alerts.consumers.kafka_consumer.HyraxKafkaConsumer"
+# data_location = "kafka://localhost:9092/my-topic"
+# primary_id_field = "id"
+# fields = ["image", "label"]
 
 [hyrax_alerts]
 # If/where records dropped by pre_filter/post_filter are written.
@@ -31,3 +31,9 @@ raw_alert = false
 [hyrax_alerts.consumer.BabamulPhotometryConsumer]
 # path to the precomputerd feature statistics (used for training)
 stats_path = "./feature_stats_day100.npz"
+
+# how to encode the band information (can also be embed for a float version of the index)
+band_mode = "onehot"
+
+[hyrax_alerts.consumer.TempoPhotometryConsumer]
+feature_set = "basic"

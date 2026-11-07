@@ -96,12 +96,16 @@ class BabamulPhotometryConsumer(BabamulConsumer):
             The location of the data stream. Defaults to None.
         """
         super().__init__(config=config, data_location=data_location)
-        stats_path = config["hyrax_alerts"]["consumer"]["BabamulPhotometryConsumer"]["stats_path"]
+        photo_config = config["hyrax_alerts"]["consumer"]["BabamulPhotometryConsumer"]
+
+        stats_path = photo_config["stats_path"]
         stats_path = Path(stats_path)
         if stats_path.is_file():
             self.stats = np.load(stats_path)
         else:
             raise ValueError(f"provided features stats file '{stats_path}' does not exist.")
+
+        self.band_mode = photo_config.get("band_mode", "onehot")
 
     def get_photometry(self, msg):
         """Extract photometry data from the incoming message.
@@ -147,10 +151,17 @@ class BabamulPhotometryConsumer(BabamulConsumer):
 
         vec4 = np.stack([dt, dt_prev, log_fluxes, log_flux_errors], axis=1)
 
-        one_hot_encoding = np.eye(NUM_BANDS, dtype=np.float32)
-        one_hot_band = one_hot_encoding[band_id]
+        band_info = None
+        if self.band_mode == "onehot":
+            one_hot_encoding = np.eye(NUM_BANDS, dtype=np.float32)
+            one_hot_band = one_hot_encoding[band_id]
+            band_info = one_hot_band
+        elif self.band_mode == "embed":
+            band_info = band_id.astype(np.float32)[:, None]
+        else:
+            raise ValueError(f"Unknown band_mode: {self.band_mode}")
 
-        photometry_vec = np.concatenate([vec4, one_hot_band], axis=1)
+        photometry_vec = np.concatenate([vec4, band_info], axis=1)
         return photometry_vec
 
     def get_mean(self, _):
