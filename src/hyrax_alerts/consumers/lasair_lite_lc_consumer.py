@@ -100,13 +100,13 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
 
     def get_band(self, sample):
         """Get the band from a sample."""
-        band = np.array([], dtype=np.int8)
+        band = np.array([], dtype=np.float32)
         alert = sample.get("alert")
         if alert is not None:
             diaSourcesList = alert.get("diaSourcesList")
             if diaSourcesList and len(diaSourcesList) > 0:
                 band = np.array(
-                    [BAND_MAP.get(s["band"].lower(), np.nan) for s in diaSourcesList], dtype=np.int8
+                    [BAND_MAP.get(s["band"].lower(), np.nan) for s in diaSourcesList], dtype=np.float32
                 )
         return band
 
