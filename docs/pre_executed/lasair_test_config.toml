@@ -22,7 +22,7 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 dataset_class = "hyrax_alerts.consumers.lasair_lite_lc_consumer.LasairLiteConsumer"
 data_location = "kafka://lasair-lsst-kafka.lsst.ac.uk:9092/lasair_201DrewsLSSTvariables/group_0"
 primary_id_field = "diaObjectId"
-fields = ["ra", "decl", "psfFlux", "psfFluxErr"]
+fields = ["ra", "decl", "diaForcedSource_psfFlux", "diaForcedSource_psfFluxErr"]
 
 [model]
 name = "HyraxLoopback"

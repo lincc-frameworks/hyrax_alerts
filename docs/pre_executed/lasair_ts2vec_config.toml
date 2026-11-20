@@ -21,18 +21,25 @@ post_filter = "hyrax_alerts.example_functions.example_post_filter"
 ############################################
 [data_request.infer_stream.data]
 dataset_class = "hyrax_alerts.consumers.lasair_lite_lc_consumer.LasairLiteConsumer"
-data_location = "kafka://lasair-lsst-kafka.lsst.ac.uk:9092/lasair_201DrewsLSSTvariables/group_1"
+data_location = "kafka://lasair-lsst-kafka.lsst.ac.uk:9092/lasair_201DrewsLSSTvariables/group_0"
 primary_id_field = "diaObjectId"
-fields = ["ra", "decl", "psfFlux", "psfFluxErr", "midpointMjdTai", "band"]
+fields = [
+    "ra",
+    "decl",
+    "diaForcedSource_psfFlux",
+    "diaForcedSource_psfFluxErr",
+    "diaForcedSource_midpointMjdTai",
+    "diaForcedSource_band",
+]
 
 [model]
 name = "HyraxTs2Vec"
 
 [model.HyraxTs2Vec]
-band_field = "band"
-time_field = "midpointMjdTai"
-flux_field = "psfFlux"
-flux_err_field = "psfFluxErr"
+band_field = "diaForcedSource_band"
+time_field = "diaForcedSource_midpointMjdTai"
+flux_field = "diaForcedSource_psfFlux"
+flux_err_field = "diaForcedSource_psfFluxErr"
 max_sequence_length = 64
 
 [infer_stream]
