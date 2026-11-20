@@ -1,15 +1,13 @@
 # ruff: noqa: N802, N806
 
 import numpy as np
+from hyrax.datasets.collate_utils import collate_as_1d_light_curve
 
 from hyrax_alerts.logging_utils import get_logger
 
 from .kafka_consumer import HyraxKafkaConsumer
 
 logger = get_logger(__name__)
-
-LSST_BANDS = ["u", "g", "r", "i", "z", "y"]
-BAND_MAP = {k: v for k, v in zip(LSST_BANDS, range(len(LSST_BANDS)), strict=False)}
 
 
 class LasairLiteConsumer(HyraxKafkaConsumer):
@@ -38,8 +36,7 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         """
         super().__init__(config=config, data_location=data_location)
 
-    # ^ Getters for a PORTION of the `object` table
-
+    # Getters for a PORTION of the `object` table
     def get_diaObjectId(self, sample):
         """Get the ID from a sample."""
         return sample.get("diaObjectId")
@@ -65,9 +62,6 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         return sample.get("latest_psfFlux")
 
     # Getters specifically for light curve handling - each returns a numpy array
-    # ^ These are only for the diaSourceList fields!
-    # ^ The diaForcedSourceList implementation is deferred until later
-
     def get_psfFlux(self, sample):
         """Get the PSF flux from a sample."""
         psfFlux = np.array([], dtype=np.float32)
@@ -107,148 +101,52 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         if alert is not None:
             diaForcedSourcesList = alert.get("diaForcedSourcesList")
             if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
-                band = np.array(
-                    [BAND_MAP.get(s["band"].lower(), np.nan) for s in diaForcedSourcesList], dtype=np.float32
-                )
+                band = np.array([s["band"] for s in diaForcedSourcesList], dtype=np.str_)
         return band
 
-    def get_reliability(self, sample):
-        """Get the reliability from a sample."""
-        reliability = np.array([], dtype=np.float32)
-        alert = sample.get("alert")
-        if alert is not None:
-            diaForcedSourcesList = alert.get("diaForcedSourcesList")
-            if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
-                reliability = np.array([s["reliability"] for s in diaForcedSourcesList], dtype=np.float32)
-        return reliability
-
-    def _num_dia_sources(self, sample):
-        """Get the number of dia sources from a sample."""
-        alert = sample.get("alert")
-        if alert is not None:
-            diaForcedSourcesList = alert.get("diaForcedSourcesList")
-            if diaForcedSourcesList:
-                return len(diaForcedSourcesList)
-        return 0
-
-    # Collation methods for each of the light curve fields
+    # Collation methods for each of the light curve fields. Note that `samples` here
+    # is a list of dictionaries assembled by Hyrax from the getters above, NOT a list
+    # of raw alerts.
 
     def collate_psfFlux(self, samples):
-        """Collate PSF flux data from a list of samples. Returns a dictionary with
-        the collated psfFlux and a corresponding psfFlux_mask indicating valid values."""
-        collated_data = {}
-
-        max_dia_sources = max(self._num_dia_sources(s) for s in samples)
-        collated_data["psfFlux"] = np.array(
-            [
-                np.pad(
-                    self.get_psfFlux(sample),
-                    (0, max(0, max_dia_sources - self._num_dia_sources(sample))),
-                    mode="constant",
-                    constant_values=np.nan,
-                )[:max_dia_sources]
-                for sample in samples
-            ]
-        )
-
-        collated_data["psfFlux_mask"] = np.array(
-            [[not np.isnan(value) for value in series] for series in collated_data["psfFlux"]]
-        )
-
-        return collated_data
+        """Collate PSF flux light curves. Returns `psfFlux`, `psfFlux_lengths`
+        and `psfFlux_mask`."""
+        return collate_as_1d_light_curve(samples, "psfFlux")
 
     def collate_psfFluxErr(self, samples):
-        """Collate PSF flux error data from a list of samples. Returns a dictionary with
-        the collated psfFluxErr and a corresponding psfFluxErr_mask indicating valid values."""
-        collated_data = {}
-
-        max_dia_sources = max(self._num_dia_sources(s) for s in samples)
-        collated_data["psfFluxErr"] = np.array(
-            [
-                np.pad(
-                    self.get_psfFluxErr(sample),
-                    (0, max(0, max_dia_sources - self._num_dia_sources(sample))),
-                    mode="constant",
-                    constant_values=np.nan,
-                )[:max_dia_sources]
-                for sample in samples
-            ]
-        )
-
-        collated_data["psfFluxErr_mask"] = np.array(
-            [[not np.isnan(value) for value in series] for series in collated_data["psfFluxErr"]]
-        )
-
-        return collated_data
+        """Collate PSF flux error light curves. Returns `psfFluxErr`,
+        `psfFluxErr_lengths` and `psfFluxErr_mask`."""
+        return collate_as_1d_light_curve(samples, "psfFluxErr")
 
     def collate_midpointMjdTai(self, samples):
-        """Collate midpoint MJD TAI data from a list of samples. Returns a dictionary with
-        the collated midpointMjdTai and a corresponding midpointMjdTai_mask indicating valid values."""
-        collated_data = {}
-
-        max_dia_sources = max(self._num_dia_sources(s) for s in samples)
-        collated_data["midpointMjdTai"] = np.array(
-            [
-                np.pad(
-                    self.get_midpointMjdTai(sample),
-                    (0, max(0, max_dia_sources - self._num_dia_sources(sample))),
-                    mode="constant",
-                    constant_values=np.nan,
-                )[:max_dia_sources]
-                for sample in samples
-            ]
-        )
-
-        collated_data["midpointMjdTai_mask"] = np.array(
-            [[not np.isnan(value) for value in series] for series in collated_data["midpointMjdTai"]]
-        )
-
-        return collated_data
+        """Collate midpoint MJD TAI light curves. Returns `midpointMjdTai`,
+        `midpointMjdTai_lengths` and `midpointMjdTai_mask`."""
+        return collate_as_1d_light_curve(samples, "midpointMjdTai")
 
     def collate_band(self, samples):
-        """Collate band data from a list of samples. Returns a dictionary with
-        the collated band and a corresponding band_mask indicating valid values."""
-        collated_data = {}
+        """Collate band light curves. Modeled on Hyrax's `collate_as_1d_light_curve`,
+        but for single-character band strings, padded with empty strings.
 
-        max_dia_sources = max(self._num_dia_sources(s) for s in samples)
-        collated_data["band"] = np.array(
-            [
-                np.pad(
-                    self.get_band(sample),
-                    (0, max(0, max_dia_sources - self._num_dia_sources(sample))),
-                    mode="constant",
-                    constant_values=np.nan,
-                )[:max_dia_sources]
-                for sample in samples
-            ]
-        )
+        Returns
+        -------
+        dict
+            `band` - "U1" array (batch, max_len) of padded band values
+            `band_lengths` - int64 array (batch) of true light curve lengths
+            `band_mask` - int64 array (batch, max_len) denoting data vs. padding
+        """
+        field = "band"
+        vals = [s[field] for s in samples]
+        lengths = np.array([len(v) for v in vals], dtype=np.int64)
+        max_len = int(lengths.max())
 
-        collated_data["band_mask"] = np.array(
-            [[not np.isnan(value) for value in series] for series in collated_data["band"]]
-        )
+        padded = np.full((len(vals), max_len), "", dtype="U1")
+        mask = np.zeros((len(vals), max_len), dtype=np.int64)
+        for i, v in enumerate(vals):
+            padded[i, : lengths[i]] = v
+            mask[i, : lengths[i]] = 1
 
-        return collated_data
-
-    def collate_reliability(self, samples):
-        """Collate reliability data from a list of samples. Returns a dictionary with
-        the collated reliability and a corresponding reliability_mask indicating valid values."""
-        collated_data = {}
-
-        max_dia_sources = max(self._num_dia_sources(s) for s in samples)
-        collated_data["reliability"] = np.array(
-            [
-                np.pad(
-                    self.get_reliability(sample),
-                    (0, max(0, max_dia_sources - self._num_dia_sources(sample))),
-                    mode="constant",
-                    constant_values=np.nan,
-                )[:max_dia_sources]
-                for sample in samples
-            ]
-        )
-
-        collated_data["reliability_mask"] = np.array(
-            [[not np.isnan(value) for value in series] for series in collated_data["reliability"]]
-        )
-
-        return collated_data
+        return {
+            field: padded,
+            field + "_lengths": lengths,
+            field + "_mask": mask,
+        }

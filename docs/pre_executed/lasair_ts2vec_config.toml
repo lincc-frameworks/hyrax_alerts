@@ -2,7 +2,7 @@
 # Hyrax-alerts configurations
 #############################
 [hyrax_alerts.consumer]
-pre_process = "hyrax_alerts.lasair_preprocess.lasair_pre_process"
+pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
 alert_limit = 500
 

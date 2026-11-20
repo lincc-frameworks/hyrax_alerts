@@ -99,7 +99,9 @@ class HyraxAlertsBaseConsumer:
                 for batch in super().__iter__():
                     filtered_batch, removed_batch = apply_filter(self.pre_filter, batch)
                     if removed_batch:
-                        logger.info(f"Removed {len(removed_batch)} items from batch with pre_filter.")
+                        logger.info(
+                            f"Removed {len(removed_batch)} of {len(batch)} items from batch with pre_filter."
+                        )
                         if self.reject_writer is not None:
                             tagged = [
                                 {**record, "__hyrax_filter_stage": "pre_filter"} for record in removed_batch
