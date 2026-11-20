@@ -73,9 +73,9 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         psfFlux = np.array([], dtype=np.float32)
         alert = sample.get("alert")
         if alert is not None:
-            diaSourcesList = alert.get("diaSourcesList")
-            if diaSourcesList and len(diaSourcesList) > 0:
-                psfFlux = np.array([s["psfFlux"] for s in diaSourcesList], dtype=np.float32)
+            diaForcedSourcesList = alert.get("diaForcedSourcesList")
+            if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
+                psfFlux = np.array([s["psfFlux"] for s in diaForcedSourcesList], dtype=np.float32)
         return psfFlux
 
     def get_psfFluxErr(self, sample):
@@ -83,9 +83,9 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         psfFluxErr = np.array([], dtype=np.float32)
         alert = sample.get("alert")
         if alert is not None:
-            diaSourcesList = alert.get("diaSourcesList")
-            if diaSourcesList and len(diaSourcesList) > 0:
-                psfFluxErr = np.array([s["psfFluxErr"] for s in diaSourcesList], dtype=np.float32)
+            diaForcedSourcesList = alert.get("diaForcedSourcesList")
+            if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
+                psfFluxErr = np.array([s["psfFluxErr"] for s in diaForcedSourcesList], dtype=np.float32)
         return psfFluxErr
 
     def get_midpointMjdTai(self, sample):
@@ -93,9 +93,11 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         midpointMjdTai = np.array([], dtype=np.float32)
         alert = sample.get("alert")
         if alert is not None:
-            diaSourcesList = alert.get("diaSourcesList")
-            if diaSourcesList and len(diaSourcesList) > 0:
-                midpointMjdTai = np.array([s["midpointMjdTai"] for s in diaSourcesList], dtype=np.float32)
+            diaForcedSourcesList = alert.get("diaForcedSourcesList")
+            if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
+                midpointMjdTai = np.array(
+                    [s["midpointMjdTai"] for s in diaForcedSourcesList], dtype=np.float32
+                )
         return midpointMjdTai
 
     def get_band(self, sample):
@@ -103,10 +105,10 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         band = np.array([], dtype=np.float32)
         alert = sample.get("alert")
         if alert is not None:
-            diaSourcesList = alert.get("diaSourcesList")
-            if diaSourcesList and len(diaSourcesList) > 0:
+            diaForcedSourcesList = alert.get("diaForcedSourcesList")
+            if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
                 band = np.array(
-                    [BAND_MAP.get(s["band"].lower(), np.nan) for s in diaSourcesList], dtype=np.float32
+                    [BAND_MAP.get(s["band"].lower(), np.nan) for s in diaForcedSourcesList], dtype=np.float32
                 )
         return band
 
@@ -115,18 +117,18 @@ class LasairLiteConsumer(HyraxKafkaConsumer):
         reliability = np.array([], dtype=np.float32)
         alert = sample.get("alert")
         if alert is not None:
-            diaSourcesList = alert.get("diaSourcesList")
-            if diaSourcesList and len(diaSourcesList) > 0:
-                reliability = np.array([s["reliability"] for s in diaSourcesList], dtype=np.float32)
+            diaForcedSourcesList = alert.get("diaForcedSourcesList")
+            if diaForcedSourcesList and len(diaForcedSourcesList) > 0:
+                reliability = np.array([s["reliability"] for s in diaForcedSourcesList], dtype=np.float32)
         return reliability
 
     def _num_dia_sources(self, sample):
         """Get the number of dia sources from a sample."""
         alert = sample.get("alert")
         if alert is not None:
-            diaSourcesList = alert.get("diaSourcesList")
-            if diaSourcesList:
-                return len(diaSourcesList)
+            diaForcedSourcesList = alert.get("diaForcedSourcesList")
+            if diaForcedSourcesList:
+                return len(diaForcedSourcesList)
         return 0
 
     # Collation methods for each of the light curve fields

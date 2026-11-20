@@ -4,6 +4,7 @@
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.lasair_preprocess.lasair_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+alert_limit = 500
 
 # With no output_location, this writer writes to ./results/<run_dir>/to_disk_0/.
 # Set output_location to send it somewhere else; it then gets its own
@@ -32,7 +33,7 @@ band_field = "band"
 time_field = "midpointMjdTai"
 flux_field = "psfFlux"
 flux_err_field = "psfFluxErr"
-max_sequence_length = 256
+max_sequence_length = 64
 
 [infer_stream]
 model_weights_file = "./hyrax_ts2vec_weights.pth"
