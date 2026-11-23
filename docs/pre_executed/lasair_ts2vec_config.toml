@@ -1,0 +1,47 @@
+#############################
+# Hyrax-alerts configurations
+#############################
+[hyrax_alerts.consumer]
+pre_process = "hyrax_alerts.example_functions.example_pre_process"
+pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+alert_limit = 500
+
+# With no output_location, this writer writes to ./results/<run_dir>/to_disk_0/.
+# Set output_location to send it somewhere else; it then gets its own
+# <timestamp>-hyrax_alerts-<rand> subdirectory inside that location.
+[hyrax_alerts.writers.to_disk_0]
+writer_class = "HyraxAlertsDiskWriter"
+post_process = "hyrax_alerts.example_functions.example_post_process"
+post_filter = "hyrax_alerts.example_functions.example_post_filter"
+
+
+
+############################################
+# Alerts specific to the Hyrax configuration
+############################################
+[data_request.infer_stream.data]
+dataset_class = "hyrax_alerts.consumers.lasair_lite_lc_consumer.LasairLiteConsumer"
+data_location = "kafka://lasair-lsst-kafka.lsst.ac.uk:9092/lasair_201DrewsLSSTvariables/group_0"
+primary_id_field = "diaObjectId"
+fields = [
+    "ra",
+    "decl",
+    "diaForcedSource_psfFlux",
+    "diaForcedSource_psfFluxErr",
+    "diaForcedSource_midpointMjdTai",
+    "diaForcedSource_band",
+]
+
+[model]
+name = "HyraxTs2Vec"
+
+[model.HyraxTs2Vec]
+band_field = "diaForcedSource_band"
+time_field = "diaForcedSource_midpointMjdTai"
+flux_field = "diaForcedSource_psfFlux"
+flux_err_field = "diaForcedSource_psfFluxErr"
+max_sequence_length = 64
+
+[infer_stream]
+model_weights_file = "./hyrax_ts2vec_weights.pth"
+save_model_output = true
