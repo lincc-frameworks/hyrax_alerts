@@ -14,6 +14,12 @@ logger = get_logger(__name__)
 def process_alerts(config_filepath=None):
     """Main function to process alerts."""
     h = Hyrax(config_file=config_filepath)
+    # Writers get each alert's input fields, which Hyrax's data loader leaves out of its batches
+    # when it runs the model's prepare_inputs in its worker processes
+    # ([model].parallel_prepare_inputs). A streaming data loader runs in this process anyway
+    # (num_workers = 0), so running prepare_inputs here instead costs nothing.
+    if h.config.get("model", {}).get("parallel_prepare_inputs"):
+        h.set_config("model.parallel_prepare_inputs", False)
     # Start a fresh run directory so repeated runs in one process don't share output.
     reset_run()
     writers = get_writers(h.config)

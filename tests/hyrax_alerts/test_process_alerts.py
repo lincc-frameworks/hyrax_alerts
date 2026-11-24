@@ -62,7 +62,12 @@ class _FakeHyrax:
         self._results = results
         self.last_session = None
 
+    def set_config(self, key, value):
+        section, name = key.split(".")
+        self.config.setdefault(section, {})[name] = value
+
     def infer_stream(self):
+        self.parallel_prepare_inputs = self.config.get("model", {}).get("parallel_prepare_inputs")
         self.last_session = _FakeSession(self._batches, self._results)
         return self.last_session
 
@@ -138,9 +143,11 @@ class _RecordingRejectWriter(HyraxAlertsBaseWriter):
         self.closed = True
 
 
-def _patch_process_alerts(monkeypatch, writers, results=None):
+def _patch_process_alerts(monkeypatch, writers, results=None, model_config=None):
     batches = [{"object_id": ["alert-1"], "data": {"flux": [1.0]}}]
     config = {"hyrax_alerts": {"consumer": {"alert_limit": False}}}
+    if model_config is not None:
+        config["model"] = model_config
     fake_hyrax = _FakeHyrax(config=config, batches=batches, results=results or [1])
     monkeypatch.setattr("hyrax_alerts.process_alerts.Hyrax", lambda config_file=None: fake_hyrax)
     monkeypatch.setattr("hyrax_alerts.process_alerts.get_writers", lambda config: writers)
@@ -156,6 +163,17 @@ def test_process_alerts_runs_writers_in_parallel(monkeypatch):
     process_alerts()
 
     assert [writer.calls for writer in writers] == [1, 1]
+
+
+def test_process_alerts_runs_prepare_inputs_in_process(monkeypatch):
+    """process_alerts turns off [model].parallel_prepare_inputs, so batches keep their input fields."""
+    writer = _RecordingWriter()
+    fake_hyrax = _patch_process_alerts(monkeypatch, [writer], model_config={"parallel_prepare_inputs": True})
+
+    process_alerts()
+
+    assert fake_hyrax.parallel_prepare_inputs is False
+    assert writer.written[0]["data"] == {"flux": 1.0}
 
 
 def test_process_alerts_isolates_results_between_parallel_writers(monkeypatch):
