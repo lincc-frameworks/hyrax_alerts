@@ -45,7 +45,7 @@ writer_class = "HyraxAlertsDiskWriter"
 topics = ["^stamp_classifier_[0-9]{8}"]
 bootstrap_servers = "kafka.alerce.science:9093"
 group_id = "<YOUR_ASSIGNED_PREFIX>_hyrax"   # must start with the prefix ALeRCE assigns
-credentials_file = "~/.alerce_kafka_credentials.toml"
+credentials_file = "./alerce_kafka_credentials.toml"
 auto_offset_reset = "earliest"
 
 [data_request.infer_stream.data]

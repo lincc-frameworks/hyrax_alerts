@@ -1,26 +1,10 @@
 #############################
 # Hyrax-alerts configurations
 #############################
-#
-# Example config for consuming Fink's LSST livestream.
-#
-# Fink issues credentials per user at registration (https://fink-broker.org), and the
-# bootstrap servers come with them -- there is no public endpoint to hardcode here.
-# Fill in `bootstrap_servers` below and point `credentials_file` at a TOML file holding
-# your SASL settings, for example:
-#
-#   # ~/.fink_kafka_credentials.toml
-#   "security.protocol" = "SASL_PLAINTEXT"
-#   "sasl.mechanism"    = "SCRAM-SHA-512"
-#   "sasl.username"     = "<YOUR_USERNAME>"
-#   "sasl.password"     = "<YOUR_PASSWORD>"
-#
-# Keep credentials in that file rather than in `consumer_options`, which is not meant to
-# hold secrets.
-
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+alert_limit = 50
 
 [hyrax_alerts.consumer.FinkConsumer]
 # Fink normally ships the Avro writer schema as JSON in the Kafka message key, so no
@@ -30,7 +14,8 @@ schema_path = false
 
 [hyrax_alerts.writers.to_disk_0]
 writer_class = "HyraxAlertsDiskWriter"
-
+post_process = "hyrax_alerts.example_functions.example_post_process"
+post_filter = "hyrax_alerts.example_functions.example_post_filter"
 
 ############################################
 # Alerts specific to the Hyrax configuration
@@ -46,7 +31,7 @@ dataset_class = "hyrax_alerts.consumers.fink_consumer.FinkLsstConsumer"
 data_location = "kafka://kafka-lsst.fink-broker.org:24499/fink_uniform_sample_lsst"
 primary_id_field = "dia_source_id"
 # LSST and Fink schemas defined here: https://lsst.fink-portal.org/schemas
-fields = ["psf_flux", "psf_flux_err", "snr", "ra", "dec", "mjd"]
+fields = ["ra", "dec", "psf_flux", "psf_flux_err"]
 
 [model]
 name = "HyraxLoopback"
