@@ -324,19 +324,19 @@ def test_lsst_getters_read_the_expected_nested_fields():
     consumer = _build_consumer(consumer_class=FinkLsstConsumer)
     alert = _alert_record()
 
-    assert consumer.get_ra(alert) == 34.5
-    assert consumer.get_dec(alert) == -12.25
-    assert consumer.get_mjd(alert) == 60676.25
-    assert consumer.get_psf_flux(alert) == 1500.0
-    assert consumer.get_psf_flux_err(alert) == 42.0
-    assert consumer.get_snr(alert) == 35.5
-    assert consumer.get_band(alert) == "r"
-    assert consumer.get_reliability(alert) == 0.875
-    assert consumer.get_extendedness(alert) == 0.0
-    assert consumer.get_snn_sn_vs_others(alert) == 0.9
-    assert consumer.get_cats_score(alert) == 0.75
-    assert consumer.get_early_snia_score(alert) == 0.5
-    assert consumer.get_n_dia_sources(alert) == 7
+    assert consumer.get_diaSource_ra(alert) == 34.5
+    assert consumer.get_diaSource_dec(alert) == -12.25
+    assert consumer.get_diaSource_midpointMjdTai(alert) == 60676.25
+    assert consumer.get_diaSource_psfFlux(alert) == 1500.0
+    assert consumer.get_diaSource_psfFluxErr(alert) == 42.0
+    assert consumer.get_diaSource_snr(alert) == 35.5
+    assert consumer.get_diaSource_band(alert) == "r"
+    assert consumer.get_diaSource_reliability(alert) == 0.875
+    assert consumer.get_diaSource_extendedness(alert) == 0.0
+    assert consumer.get_clf_snnSnVsOthers_score(alert) == 0.9
+    assert consumer.get_clf_cats_score(alert) == 0.75
+    assert consumer.get_clf_earlySNIa_score(alert) == 0.5
+    assert consumer.get_diaObject_nDiaSources(alert) == 7
 
 
 def test_lsst_getters_survive_an_avro_round_trip():
@@ -346,17 +346,69 @@ def test_lsst_getters_survive_an_avro_round_trip():
     decoded = consumer._decode(_make_message(_alert_record(dia_source_id=7, band="z")))
 
     assert consumer.get_dia_source_id(decoded) == 7
-    assert consumer.get_band(decoded) == "z"
-    assert consumer.get_n_dia_sources(decoded) == 7
+    assert consumer.get_diaSource_band(decoded) == "z"
+    assert consumer.get_diaObject_nDiaSources(decoded) == 7
 
 
-def test_no_collate_hooks_are_defined():
-    """These consumers deliberately ship scalar getters only, so they define no
-    collate_* hooks. If someone adds an array-valued getter later, this is the
-    reminder that it needs a matching collation function."""
-    hooks = [name for name in dir(FinkLsstConsumer) if name.startswith("collate_")]
+def test_collate_hooks_exist_exactly_for_light_curve_getters():
+    """Array-valued (prvDia*) getters each need a collate hook; scalar getters must not
+    have one, so hyrax's default stacking applies to them."""
+    names = dir(FinkLsstConsumer)
+    light_curve = {
+        n[len("get_") :] for n in names if n.startswith(("get_prvDiaSources_", "get_prvDiaForcedSources_"))
+    }
+    hooks = {n[len("collate_") :] for n in names if n.startswith("collate_")}
 
-    assert hooks == []
+    assert light_curve
+    assert hooks == light_curve
+
+
+def test_light_curve_getters_and_collation_preserve_dtypes_and_nulls():
+    """Ids stay int64, MJDs float64, bands strings; nulls get the documented fill values."""
+    consumer = _build_consumer(consumer_class=FinkLsstConsumer)
+    alerts = [
+        {"prvDiaSources": [{"diaSourceId": 2**60 + 1, "psfFlux": 1.0, "band": "g", "isNegative": None}]},
+        {"prvDiaSources": []},
+        {
+            "prvDiaSources": [
+                {"diaSourceId": 7, "psfFlux": None, "band": "r", "isNegative": True},
+                {"diaSourceId": 8, "psfFlux": 3.0, "band": "i", "isNegative": False},
+            ]
+        },
+        {},
+    ]
+    samples = [
+        {
+            f"prvDiaSources_{f}": getattr(consumer, f"get_prvDiaSources_{f}")(a)
+            for f in ("diaSourceId", "psfFlux", "band", "isNegative")
+        }
+        for a in alerts
+    ]
+
+    ids = consumer.collate_prvDiaSources_diaSourceId(samples)
+    assert ids["prvDiaSources_diaSourceId"].dtype == np.int64
+    assert ids["prvDiaSources_diaSourceId"][0, 0] == 2**60 + 1
+    np.testing.assert_array_equal(ids["prvDiaSources_diaSourceId_lengths"], [1, 0, 2, 0])
+    np.testing.assert_array_equal(ids["prvDiaSources_diaSourceId_mask"], [[1, 0], [0, 0], [1, 1], [0, 0]])
+
+    flux = consumer.collate_prvDiaSources_psfFlux(samples)["prvDiaSources_psfFlux"]
+    assert flux.shape == (4, 2)
+    assert np.isnan(flux[2, 0]) and flux[2, 1] == 3.0
+
+    band = consumer.collate_prvDiaSources_band(samples)["prvDiaSources_band"]
+    assert band[2].tolist() == ["r", "i"] and band[1].tolist() == ["", ""]
+
+    neg = consumer.collate_prvDiaSources_isNegative(samples)["prvDiaSources_isNegative"]
+    assert neg.dtype == np.bool_ and neg[2].tolist() == [True, False]
+
+
+def test_ss_source_getters_read_the_ss_source_record():
+    """ssSource getters read from the top-level ssSource record."""
+    consumer = _build_consumer(consumer_class=FinkLsstConsumer)
+    alert = {"ssSource": {"designation": "2024 AB", "ephVmag": 21.5}}
+
+    assert consumer.get_ssSource_designation(alert) == "2024 AB"
+    assert consumer.get_ssSource_ephVmag(alert) == 21.5
 
 
 def test_scalar_getters_collate_with_hyrax_defaults():
@@ -367,7 +419,10 @@ def test_scalar_getters_collate_with_hyrax_defaults():
 
     # Mirror StreamingDataProvider._structure, which wraps each getter's return value.
     samples = [
-        {"psf_flux": np.asarray(consumer.get_psf_flux(a)), "band": np.asarray(consumer.get_band(a))}
+        {
+            "psf_flux": np.asarray(consumer.get_diaSource_psfFlux(a)),
+            "band": np.asarray(consumer.get_diaSource_band(a)),
+        }
         for a in alerts
     ]
 
@@ -425,7 +480,7 @@ class ScalarLoopbackModel(HyraxLoopback):
     @staticmethod
     def prepare_inputs(data_dict):
         """Pull the psf_flux column out of the collated batch."""
-        return (data_dict["data"]["psf_flux"], np.array([], dtype=np.float32))
+        return (data_dict["data"]["diaSource_psfFlux"], np.array([], dtype=np.float32))
 
 
 class FinkRecordingWriter(HyraxAlertsBaseWriter):
@@ -472,7 +527,7 @@ batch_flush_timeout = 0.0
 dataset_class = "test_fink_consumer.StreamingFinkConsumer"
 data_location = "kafka://localhost:9092/fink-test-topic"
 primary_id_field = "dia_source_id"
-fields = ["psf_flux"]
+fields = ["diaSource_psfFlux"]
 
 [model]
 name = "test_fink_consumer.ScalarLoopbackModel"
@@ -512,5 +567,5 @@ def test_fink_alerts_flow_end_to_end_without_a_collate_hook(tmp_path, recorded_r
     for record in recorded_records:
         index = int(record["object_id"])
         expected = _e2e_psf_flux(index)
-        assert record["data"]["psf_flux"] == pytest.approx(expected)
+        assert record["data"]["diaSource_psfFlux"] == pytest.approx(expected)
         assert record["__hyrax_result"]["data"] == pytest.approx(expected)
