@@ -29,25 +29,25 @@ dataset_class = "hyrax_alerts.consumers.fink_consumer.FinkLsstConsumer"
 # Other topics listed here: https://lsst.fink-portal.org/schemas
 # Group_id is specified in `./fink_kafka_credentials.toml`
 data_location = "kafka://kafka-lsst.fink-broker.org:24499/fink_uniform_sample_lsst"
-primary_id_field = "dia_source_dia_source_id"
+primary_id_field = "diaSource_diaSourceId"
 # LSST and Fink schemas defined here: https://lsst.fink-portal.org/schemas
 fields = [
-    "dia_source_ra",
-    "dia_source_dec",
-    "dia_source_psfFlux", 
-    "dia_source_psfFluxErr",
-    "dia_source_band",
-    "dia_source_midpointMjdTai"
+    "diaSource_ra",
+    "diaSource_dec",
+    "diaSource_psfFlux",
+    "diaSource_psfFluxErr",
+    "diaSource_band",
+    "diaSource_midpointMjdTai"
 ]
 
 [model]
 name = "HyraxTs2Vec"
 
 [model.HyraxTs2Vec]
-band_field = "dia_source_band"
-time_field = "dia_source_midpointMjdTai"
-flux_field = "dia_source_psfFlux"
-flux_err_field = "dia_source_psfFluxErr"
+band_field = "diaSource_band"
+time_field = "diaSource_midpointMjdTai"
+flux_field = "diaSource_psfFlux"
+flux_err_field = "diaSource_psfFluxErr"
 max_sequence_length = 64
 
 [infer_stream]

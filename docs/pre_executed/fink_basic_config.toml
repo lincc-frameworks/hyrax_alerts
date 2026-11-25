@@ -29,9 +29,9 @@ dataset_class = "hyrax_alerts.consumers.fink_consumer.FinkLsstConsumer"
 # Other topics listed here: https://lsst.fink-portal.org/schemas
 # Group_id is specified in `./fink_kafka_credentials.toml`
 data_location = "kafka://kafka-lsst.fink-broker.org:24499/fink_uniform_sample_lsst"
-primary_id_field = "dia_source_id"
+primary_id_field = "diaSource_diaSourceId"
 # LSST and Fink schemas defined here: https://lsst.fink-portal.org/schemas
-fields = ["ra", "dec", "psf_flux", "psf_flux_err"]
+fields = ["diaSource_ra", "diaSource_dec", "diaSource_psfFlux", "diaSource_psfFluxErr"]
 
 [model]
 name = "HyraxLoopback"
