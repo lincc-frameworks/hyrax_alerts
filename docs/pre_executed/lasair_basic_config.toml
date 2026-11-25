@@ -4,6 +4,7 @@
 [hyrax_alerts.consumer]
 pre_process = "hyrax_alerts.example_functions.example_pre_process"
 pre_filter = "hyrax_alerts.example_functions.example_pre_filter"
+alert_limit = 50
 
 # With no output_location, this writer writes to ./results/<run_dir>/to_disk_0/.
 # Set output_location to send it somewhere else; it then gets its own
