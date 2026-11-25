@@ -29,7 +29,7 @@ alert_limit = false
 raw_alert = false
 
 [hyrax_alerts.consumer.BabamulPhotometryConsumer]
-# path to the precomputerd feature statistics (used for training)
+# path to the precomputed feature statistics (used for training)
 stats_path = "./feature_stats_day100.npz"
 
 [hyrax_alerts.consumer.FinkConsumer]

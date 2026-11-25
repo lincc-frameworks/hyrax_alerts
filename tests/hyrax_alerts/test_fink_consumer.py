@@ -514,7 +514,7 @@ def _write_e2e_config(tmp_path):
     config_file.write_text(
         f"""
 [general]
-results_dir = "{tmp_path / "results"}"
+results_dir = "{tmp_path / 'results'}
 
 [data_loader]
 batch_size = {E2E_BATCH_SIZE}
